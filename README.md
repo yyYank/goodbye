@@ -112,7 +112,7 @@ goodbye import --brew --dir ~/goodbye-export --apply
 
 ---
 
-## `goodbye goodbyebrew --mise`
+## `goodbye brew --mise`
 
 Homebrew で管理しているツールのうち、
 **mise で管理可能なものを抽出し、段階的に移行**します。
@@ -226,15 +226,15 @@ goodbye import --brew
 ### brew 依存を削減しmiseへ移行(tap以外)
 
 ```bash
-goodbye goodbyebrew --mise
-goodbye goodbyebrew --mise --apply
+goodbye brew --mise
+goodbye brew --mise --apply
 ```
 
 ---
 
 ## 将来拡張（予定）
 
-* `goodbye goodbyebrew --uv`
+* `goodbye brew --uv`
 * toml manifest 対応
 
 ---
@@ -242,7 +242,7 @@ goodbye goodbyebrew --mise --apply
 ## 注意事項
 
 * GUI アプリ（cask）に完全な移行先はないためこのコマンドの対象外です。nixなどを選択肢としてください
-* DBなどの常駐サービスは goodbyebrew 対象外を推奨します
+* DBなどの常駐サービスは goodbye brew 対象外を推奨します
 * 実行は自己責任で行ってください
 
 ---
