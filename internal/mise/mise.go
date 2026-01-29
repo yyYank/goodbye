@@ -95,7 +95,11 @@ func Migrate(cfg *config.Config, opts MigrateOptions) error {
 
 		// Install with mise
 		fmt.Printf("  Installing %s with mise...\n", c.MiseName)
-		if err := runCommand(fmt.Sprintf("mise install %s@latest", c.MiseName), opts.Verbose); err != nil {
+		installCmd := cfg.Mise.Commands.InstallCmd
+		if installCmd == "" {
+			installCmd = "mise install %s@latest"
+		}
+		if err := runCommand(fmt.Sprintf(installCmd, c.MiseName), opts.Verbose); err != nil {
 			fmt.Printf("  Failed to install: %v\n", err)
 			failed = append(failed, c)
 			continue
@@ -103,7 +107,11 @@ func Migrate(cfg *config.Config, opts MigrateOptions) error {
 
 		// Set global
 		fmt.Printf("  Setting %s as global...\n", c.MiseName)
-		if err := runCommand(fmt.Sprintf("mise use -g %s@latest", c.MiseName), opts.Verbose); err != nil {
+		useGlobalCmd := cfg.Mise.Commands.UseGlobalCmd
+		if useGlobalCmd == "" {
+			useGlobalCmd = "mise use -g %s@latest"
+		}
+		if err := runCommand(fmt.Sprintf(useGlobalCmd, c.MiseName), opts.Verbose); err != nil {
 			fmt.Printf("  Failed to set global: %v\n", err)
 			failed = append(failed, c)
 			continue
@@ -119,7 +127,11 @@ func Migrate(cfg *config.Config, opts MigrateOptions) error {
 
 		// Uninstall from brew
 		fmt.Printf("  Uninstalling %s from brew...\n", c.BrewName)
-		if err := runCommand(fmt.Sprintf("brew uninstall %s", c.BrewName), opts.Verbose); err != nil {
+		brewUninstallCmd := cfg.Mise.Commands.BrewUninstallCmd
+		if brewUninstallCmd == "" {
+			brewUninstallCmd = "brew uninstall %s"
+		}
+		if err := runCommand(fmt.Sprintf(brewUninstallCmd, c.BrewName), opts.Verbose); err != nil {
 			fmt.Printf("  Warning: Failed to uninstall from brew: %v\n", err)
 			// Still consider it a success since mise is working
 		}

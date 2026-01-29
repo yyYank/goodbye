@@ -163,7 +163,11 @@ func Import(cfg *config.Config, opts ImportOptions) error {
 
 	// Import taps first
 	if importTaps {
-		if err := importFile(opts.Dir, "tap.txt", "brew tap", opts); err != nil {
+		tapCmd := cfg.Brew.Import.TapCmd
+		if tapCmd == "" {
+			tapCmd = "brew tap"
+		}
+		if err := importFile(opts.Dir, "tap.txt", tapCmd, opts); err != nil {
 			if !opts.Continue {
 				return err
 			}
@@ -178,7 +182,11 @@ func Import(cfg *config.Config, opts ImportOptions) error {
 		if formulaFile == "" {
 			formulaFile = "formula.txt"
 		}
-		if err := importFile(opts.Dir, formulaFile, "brew install", opts); err != nil {
+		formulaInstallCmd := cfg.Brew.Import.FormulaInstallCmd
+		if formulaInstallCmd == "" {
+			formulaInstallCmd = "brew install"
+		}
+		if err := importFile(opts.Dir, formulaFile, formulaInstallCmd, opts); err != nil {
 			if !opts.Continue {
 				return err
 			}
@@ -193,7 +201,11 @@ func Import(cfg *config.Config, opts ImportOptions) error {
 		if caskFile == "" {
 			caskFile = "cask.txt"
 		}
-		if err := importFile(opts.Dir, caskFile, "brew install --cask", opts); err != nil {
+		caskInstallCmd := cfg.Brew.Import.CaskInstallCmd
+		if caskInstallCmd == "" {
+			caskInstallCmd = "brew install --cask"
+		}
+		if err := importFile(opts.Dir, caskFile, caskInstallCmd, opts); err != nil {
 			if !opts.Continue {
 				return err
 			}
