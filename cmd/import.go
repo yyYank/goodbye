@@ -44,8 +44,8 @@ var importMiseCmd = &cobra.Command{
 	Short: "Import mise configuration",
 	Long: `Import mise tools from a configuration file.
 
-Reads .mise.toml or .tool-versions files and installs
-the tools on the current system.`,
+Reads .mise.toml, .tool-versions, or brew export files (formula.txt)
+and installs the tools on the current system.`,
 	Example: `  # Dry-run (default) - preview what will be imported
   goodbye import mise --dir ~/goodbye-export
 
@@ -58,20 +58,28 @@ the tools on the current system.`,
   # Import and set as global
   goodbye import mise --dir ~/goodbye-export --apply --global
 
+  # Import from brew export files
+  goodbye import mise --from brew --dir ~/goodbye-export-brew
+
+  # Import from brew with specific version
+  goodbye import mise --from brew --dir ~/goodbye-export-brew --version 3.12 --apply
+
   # Continue on errors
   goodbye import mise --dir ~/goodbye-export --apply --continue`,
 	RunE: runImportMise,
 }
 
 var (
-	importDir        string
-	importApply      bool
-	importVerbose    bool
-	importOnly       string
-	importSkipTaps   bool
-	importContinue   bool
-	importMiseFile   string
-	importMiseGlobal bool
+	importDir         string
+	importApply       bool
+	importVerbose     bool
+	importOnly        string
+	importSkipTaps    bool
+	importContinue    bool
+	importMiseFile    string
+	importMiseGlobal  bool
+	importMiseFrom    string
+	importMiseVersion string
 )
 
 func init() {
@@ -92,6 +100,8 @@ func init() {
 	importMiseCmd.Flags().StringVar(&importMiseFile, "file", "", "Specific file to import (e.g., .mise.toml or .tool-versions)")
 	importMiseCmd.Flags().BoolVar(&importMiseGlobal, "global", false, "Set imported tools as global")
 	importMiseCmd.Flags().BoolVar(&importContinue, "continue", false, "Continue on errors")
+	importMiseCmd.Flags().StringVar(&importMiseFrom, "from", "", "Import source format (e.g., 'brew' to import from brew export files)")
+	importMiseCmd.Flags().StringVar(&importMiseVersion, "version", "latest", "Version to install (default: latest)")
 }
 
 func runImportBrew(cmd *cobra.Command, args []string) error {
@@ -120,6 +130,8 @@ func runImportMise(cmd *cobra.Command, args []string) error {
 		Verbose:  importVerbose,
 		Continue: importContinue,
 		Global:   importMiseGlobal,
+		FromBrew: importMiseFrom == "brew",
+		Version:  importMiseVersion,
 	}
 
 	return mise.Import(opts)
