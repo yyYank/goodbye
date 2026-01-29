@@ -121,7 +121,7 @@ func Export(cfg *config.Config, opts ExportOptions) error {
 }
 
 // Import imports a Homebrew environment from exported files
-func Import(opts ImportOptions) error {
+func Import(cfg *config.Config, opts ImportOptions) error {
 	if opts.Dir == "" {
 		opts.Dir = "."
 	}
@@ -173,7 +173,12 @@ func Import(opts ImportOptions) error {
 
 	// Import formulas
 	if importFormulas {
-		if err := importFile(opts.Dir, "formula.txt", "brew install", opts); err != nil {
+		// Use filename from config, fallback to default
+		formulaFile := cfg.Brew.Import.FormulaFile
+		if formulaFile == "" {
+			formulaFile = "formula.txt"
+		}
+		if err := importFile(opts.Dir, formulaFile, "brew install", opts); err != nil {
 			if !opts.Continue {
 				return err
 			}
@@ -183,7 +188,12 @@ func Import(opts ImportOptions) error {
 
 	// Import casks
 	if importCasks {
-		if err := importFile(opts.Dir, "cask.txt", "brew install --cask", opts); err != nil {
+		// Use filename from config, fallback to default
+		caskFile := cfg.Brew.Import.CaskFile
+		if caskFile == "" {
+			caskFile = "cask.txt"
+		}
+		if err := importFile(opts.Dir, caskFile, "brew install --cask", opts); err != nil {
 			if !opts.Continue {
 				return err
 			}

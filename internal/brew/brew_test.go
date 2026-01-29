@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"reflect"
 	"testing"
+
+	"github.com/yyYank/goodbye/internal/config"
 )
 
 func TestTruncateList(t *testing.T) {
@@ -198,7 +200,7 @@ func TestImportOptionsValidation(t *testing.T) {
 				DryRun: true,
 				Only:   tt.only,
 			}
-			err := Import(opts)
+			err := Import(config.DefaultConfig(), opts)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("Import() error = %v, wantErr %v", err, tt.wantErr)
 			}
@@ -211,7 +213,7 @@ func TestImportNonExistentDirectory(t *testing.T) {
 		Dir:    "/nonexistent/directory",
 		DryRun: true,
 	}
-	err := Import(opts)
+	err := Import(config.DefaultConfig(), opts)
 	if err == nil {
 		t.Error("Import() should return error for non-existent directory")
 	}
@@ -243,7 +245,7 @@ func TestImportSkipTaps(t *testing.T) {
 	}
 
 	// This should not error - taps should be skipped
-	err = Import(opts)
+	err = Import(config.DefaultConfig(), opts)
 	if err != nil {
 		t.Errorf("Import() with SkipTaps error = %v", err)
 	}
@@ -323,7 +325,7 @@ package3`
 	}
 
 	// This should not error - comments and empty lines should be skipped
-	err = Import(opts)
+	err = Import(config.DefaultConfig(), opts)
 	if err != nil {
 		t.Errorf("Import() with comments error = %v", err)
 	}

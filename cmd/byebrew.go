@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+	"github.com/yyYank/goodbye/internal/config"
 	"github.com/yyYank/goodbye/internal/mise"
 )
 
@@ -72,12 +73,17 @@ func init() {
 }
 
 func rungoodbyebrewMise(cmd *cobra.Command, args []string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
 	opts := mise.MigrateOptions{
 		DryRun:  !goodbyebrewApply,
 		Verbose: goodbyebrewVerbose,
 	}
 
-	return mise.Migrate(opts)
+	return mise.Migrate(cfg, opts)
 }
 
 func rungoodbyebrewAsdf(cmd *cobra.Command, args []string) error {

@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"fmt"
+
 	"github.com/spf13/cobra"
 	"github.com/yyYank/goodbye/internal/brew"
+	"github.com/yyYank/goodbye/internal/config"
 	"github.com/yyYank/goodbye/internal/mise"
 )
 
@@ -92,6 +95,11 @@ func init() {
 }
 
 func runImportBrew(cmd *cobra.Command, args []string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
 	opts := brew.ImportOptions{
 		Dir:      importDir,
 		DryRun:   !importApply,
@@ -101,7 +109,7 @@ func runImportBrew(cmd *cobra.Command, args []string) error {
 		Continue: importContinue,
 	}
 
-	return brew.Import(opts)
+	return brew.Import(cfg, opts)
 }
 
 func runImportMise(cmd *cobra.Command, args []string) error {

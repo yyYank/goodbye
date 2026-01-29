@@ -3,6 +3,8 @@ package mise
 import (
 	"reflect"
 	"testing"
+
+	"github.com/yyYank/goodbye/internal/config"
 )
 
 func TestNormalizeFormulaName(t *testing.T) {
@@ -180,7 +182,7 @@ func TestFindCandidates(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := findCandidates(tt.formulas, registry)
+			result := findCandidates(tt.formulas, registry, config.DefaultConfig())
 			if !reflect.DeepEqual(result, tt.expected) {
 				t.Errorf("findCandidates() = %v, want %v", result, tt.expected)
 			}
@@ -192,7 +194,7 @@ func TestFindCandidatesWithEmptyRegistry(t *testing.T) {
 	registry := map[string]string{}
 	formulas := []string{"node", "python", "go"}
 
-	result := findCandidates(formulas, registry)
+	result := findCandidates(formulas, registry, config.DefaultConfig())
 	if result != nil {
 		t.Errorf("findCandidates() with empty registry = %v, want nil", result)
 	}
@@ -303,7 +305,7 @@ func TestKnownMappings(t *testing.T) {
 
 	for _, tt := range knownMappingTests {
 		t.Run(tt.brewName+"->"+tt.miseName, func(t *testing.T) {
-			candidates := findCandidates([]string{tt.brewName}, registry)
+			candidates := findCandidates([]string{tt.brewName}, registry, config.DefaultConfig())
 			if len(candidates) != 1 {
 				t.Fatalf("Expected 1 candidate, got %d", len(candidates))
 			}

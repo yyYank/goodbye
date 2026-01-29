@@ -8,6 +8,8 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+
+	"github.com/yyYank/goodbye/internal/config"
 )
 
 // MigrateOptions represents options for the goodbyebrew --mise command
@@ -31,10 +33,10 @@ type MigrationCandidate struct {
 }
 
 // Migrate performs the brew to mise migration
-func Migrate(opts MigrateOptions) error {
+func Migrate(cfg *config.Config, opts MigrateOptions) error {
 	// Step 1: Get Homebrew formula list
 	fmt.Println("Getting Homebrew formula list...")
-	formulas, err := getBrewFormulas()
+	formulas, err := getBrewFormulas(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to get brew formulas: %w", err)
 	}
@@ -42,14 +44,14 @@ func Migrate(opts MigrateOptions) error {
 
 	// Step 2: Get mise registry
 	fmt.Println("Getting mise registry...")
-	registry, err := getMiseRegistry()
+	registry, err := getMiseRegistry(cfg)
 	if err != nil {
 		return fmt.Errorf("failed to get mise registry: %w", err)
 	}
 	fmt.Printf("Found %d tools in mise registry\n", len(registry))
 
 	// Step 3: Find migration candidates
-	candidates := findCandidates(formulas, registry)
+	candidates := findCandidates(formulas, registry, cfg)
 	if len(candidates) == 0 {
 		fmt.Println("\nNo migration candidates found.")
 		return nil
@@ -109,7 +111,7 @@ func Migrate(opts MigrateOptions) error {
 
 		// Verify installation
 		fmt.Printf("  Verifying installation...\n")
-		if err := verifyInstallation(c.MiseName); err != nil {
+		if err := verifyInstallation(cfg, c.MiseName); err != nil {
 			fmt.Printf("  Verification failed: %v\n", err)
 			failed = append(failed, c)
 			continue
@@ -144,8 +146,14 @@ func Migrate(opts MigrateOptions) error {
 	return nil
 }
 
-func getBrewFormulas() ([]string, error) {
-	cmd := exec.Command("brew", "list", "--installed-on-request")
+func getBrewFormulas(cfg *config.Config) ([]string, error) {
+	// Use command from config, fallback to default
+	cmdStr := cfg.Brew.Export.FormulaCmd
+	if cmdStr == "" {
+		cmdStr = "brew list --installed-on-request"
+	}
+
+	cmd := exec.Command("sh", "-c", cmdStr)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
@@ -162,8 +170,14 @@ func getBrewFormulas() ([]string, error) {
 	return formulas, scanner.Err()
 }
 
-func getMiseRegistry() (map[string]string, error) {
-	cmd := exec.Command("mise", "registry")
+func getMiseRegistry(cfg *config.Config) (map[string]string, error) {
+	// Use command from config, fallback to default
+	cmdStr := cfg.Mise.Commands.RegistryCmd
+	if cmdStr == "" {
+		cmdStr = "mise registry"
+	}
+
+	cmd := exec.Command("sh", "-c", cmdStr)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("mise command failed (is mise installed?): %w", err)
@@ -188,8 +202,14 @@ func getMiseRegistry() (map[string]string, error) {
 }
 
 // Attempt to get registry as JSON (newer mise versions)
-func getMiseRegistryJSON() ([]RegistryEntry, error) {
-	cmd := exec.Command("mise", "registry", "--json")
+func getMiseRegistryJSON(cfg *config.Config) ([]RegistryEntry, error) {
+	// Use command from config, fallback to default
+	cmdStr := cfg.Mise.Commands.RegistryJSONCmd
+	if cmdStr == "" {
+		cmdStr = "mise registry --json"
+	}
+
+	cmd := exec.Command("sh", "-c", cmdStr)
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, err
@@ -213,48 +233,51 @@ func normalizeFormulaName(name string) string {
 	return normalized
 }
 
-func findCandidates(formulas []string, registry map[string]string) []MigrationCandidate {
+func findCandidates(formulas []string, registry map[string]string, cfg *config.Config) []MigrationCandidate {
 	var candidates []MigrationCandidate
 
-	// Common tool mappings (brew name -> mise name)
-	knownMappings := map[string]string{
-		"node":       "node",
-		"nodejs":     "node",
-		"python":     "python",
-		"python3":    "python",
-		"ruby":       "ruby",
-		"go":         "go",
-		"golang":     "go",
-		"rust":       "rust",
-		"rustup":     "rust",
-		"java":       "java",
-		"openjdk":    "java",
-		"deno":       "deno",
-		"bun":        "bun",
-		"terraform":  "terraform",
-		"kubectl":    "kubectl",
-		"helm":       "helm",
-		"awscli":     "awscli",
-		"yarn":       "yarn",
-		"pnpm":       "pnpm",
-		"gradle":     "gradle",
-		"maven":      "maven",
-		"kotlin":     "kotlin",
-		"scala":      "scala",
-		"elixir":     "elixir",
-		"erlang":     "erlang",
-		"lua":        "lua",
-		"luajit":     "luajit",
-		"perl":       "perl",
-		"php":        "php",
-		"zig":        "zig",
-		"nim":        "nim",
-		"crystal":    "crystal",
-		"julia":      "julia",
-		"r":          "r",
-		"dotnet":     "dotnet",
-		"flutter":    "flutter",
-		"dart":       "dart",
+	// Use known mappings from config, with fallback to default
+	knownMappings := cfg.Mise.KnownMappings
+	if knownMappings == nil || len(knownMappings) == 0 {
+		knownMappings = map[string]string{
+			"node":       "node",
+			"nodejs":     "node",
+			"python":     "python",
+			"python3":    "python",
+			"ruby":       "ruby",
+			"go":         "go",
+			"golang":     "go",
+			"rust":       "rust",
+			"rustup":     "rust",
+			"java":       "java",
+			"openjdk":    "java",
+			"deno":       "deno",
+			"bun":        "bun",
+			"terraform":  "terraform",
+			"kubectl":    "kubectl",
+			"helm":       "helm",
+			"awscli":     "awscli",
+			"yarn":       "yarn",
+			"pnpm":       "pnpm",
+			"gradle":     "gradle",
+			"maven":      "maven",
+			"kotlin":     "kotlin",
+			"scala":      "scala",
+			"elixir":     "elixir",
+			"erlang":     "erlang",
+			"lua":        "lua",
+			"luajit":     "luajit",
+			"perl":       "perl",
+			"php":        "php",
+			"zig":        "zig",
+			"nim":        "nim",
+			"crystal":    "crystal",
+			"julia":      "julia",
+			"r":          "r",
+			"dotnet":     "dotnet",
+			"flutter":    "flutter",
+			"dart":       "dart",
+		}
 	}
 
 	for _, formula := range formulas {
@@ -294,9 +317,16 @@ func runCommand(cmdStr string, verbose bool) error {
 	return cmd.Run()
 }
 
-func verifyInstallation(miseName string) error {
-	// Try to get the installed version
-	cmd := exec.Command("mise", "current", miseName)
+func verifyInstallation(cfg *config.Config, miseName string) error {
+	// Use command from config, fallback to default
+	cmdTemplate := cfg.Mise.Commands.CurrentCmd
+	if cmdTemplate == "" {
+		cmdTemplate = "mise current"
+	}
+
+	// Build command with miseName argument
+	cmdStr := fmt.Sprintf("%s %s", cmdTemplate, miseName)
+	cmd := exec.Command("sh", "-c", cmdStr)
 	output, err := cmd.Output()
 	if err != nil {
 		return err
