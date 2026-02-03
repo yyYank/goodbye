@@ -12,7 +12,7 @@ import (
 	"github.com/yyYank/goodbye/internal/config"
 )
 
-// MigrateOptions represents options for the goodbyebrew --mise command
+// MigrateOptions represents options for the brew --mise command
 type MigrateOptions struct {
 	DryRun  bool
 	Verbose bool

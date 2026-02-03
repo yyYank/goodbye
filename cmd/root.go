@@ -15,7 +15,7 @@ environment package management step by step.
 
 Key features:
   - Homebrew export / import
-  - Homebrew -> mise/asdf gradual migration (goodbyebrew)
+  - Homebrew -> mise gradual migration (brew --mise)
   - User-defined commands for flexible retrieval
   - Future extensions (uv, etc.) friendly structure
 
