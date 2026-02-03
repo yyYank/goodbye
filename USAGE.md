@@ -68,11 +68,11 @@ Homebrew で入れているもので、mise が管理できるツールを候補
 1. 現在の Homebrew formula を取得し、mise registry と照合する。
 2. 移行候補一覧を確認する（dry-run）。
    ```bash
-   goodbye goodbyebrew mise
+   goodbye brew --mise
    ```
 3. 問題なければ実行する。
    ```bash
-   goodbye goodbyebrew mise --apply
+   goodbye brew --mise --apply
    ```
 4. 実行時の流れ（ツールごと）:
    1) `mise install <tool>@latest`  
