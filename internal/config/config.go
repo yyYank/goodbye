@@ -9,8 +9,9 @@ import (
 
 // Config represents the ~/.goodbye.toml configuration
 type Config struct {
-	Brew BrewConfig `toml:"brew"`
-	Mise MiseConfig `toml:"mise"`
+	Brew     BrewConfig     `toml:"brew"`
+	Mise     MiseConfig     `toml:"mise"`
+	Dotfiles DotfilesConfig `toml:"dotfiles"`
 }
 
 // BrewConfig represents brew-related configuration
@@ -50,6 +51,16 @@ type MiseCommandsConfig struct {
 	InstallCmd       string `toml:"install_cmd"`
 	UseGlobalCmd     string `toml:"use_global_cmd"`
 	BrewUninstallCmd string `toml:"brew_uninstall_cmd"`
+}
+
+// DotfilesConfig represents dotfiles-related configuration
+type DotfilesConfig struct {
+	Repository string   `toml:"repository"`
+	LocalPath  string   `toml:"local_path"`
+	SourceDir  string   `toml:"source_dir"`
+	Files      []string `toml:"files"`
+	Symlink    bool     `toml:"symlink"`
+	Backup     bool     `toml:"backup"`
 }
 
 // DefaultConfig returns the default configuration
@@ -119,7 +130,40 @@ func DefaultConfig() *Config {
 				"dart":      "dart",
 			},
 		},
+		Dotfiles: DotfilesConfig{
+			Repository: "",
+			LocalPath:  "~/.dotfiles",
+			SourceDir:  "",
+			Files: []string{
+				".zshrc",
+				".bashrc",
+				".bash_profile",
+				".vimrc",
+				".gitconfig",
+				".tmux.conf",
+			},
+			Symlink: true,
+			Backup:  true,
+		},
 	}
+}
+
+// Save saves the configuration to ~/.goodbye.toml
+func Save(cfg *Config) error {
+	homeDir, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	configPath := filepath.Join(homeDir, ".goodbye.toml")
+	file, err := os.Create(configPath)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	encoder := toml.NewEncoder(file)
+	return encoder.Encode(cfg)
 }
 
 // Load loads the configuration from ~/.goodbye.toml
@@ -208,6 +252,27 @@ func mergeConfig(defaults, user *Config) *Config {
 		for k, v := range user.Mise.KnownMappings {
 			result.Mise.KnownMappings[k] = v
 		}
+	}
+
+	// Dotfiles
+	if user.Dotfiles.Repository != "" {
+		result.Dotfiles.Repository = user.Dotfiles.Repository
+	}
+	if user.Dotfiles.LocalPath != "" {
+		result.Dotfiles.LocalPath = user.Dotfiles.LocalPath
+	}
+	if user.Dotfiles.SourceDir != "" {
+		result.Dotfiles.SourceDir = user.Dotfiles.SourceDir
+	}
+	if len(user.Dotfiles.Files) > 0 {
+		result.Dotfiles.Files = user.Dotfiles.Files
+	}
+	// For bool fields, only override if user has set dotfiles section
+	// (indicated by having a non-empty Repository or LocalPath or SourceDir or Files)
+	hasDotfilesSection := user.Dotfiles.Repository != "" || user.Dotfiles.LocalPath != "" || user.Dotfiles.SourceDir != "" || len(user.Dotfiles.Files) > 0
+	if hasDotfilesSection {
+		result.Dotfiles.Symlink = user.Dotfiles.Symlink
+		result.Dotfiles.Backup = user.Dotfiles.Backup
 	}
 
 	return result

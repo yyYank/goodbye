@@ -14,6 +14,7 @@
 
 - Homebrew 環境の **export / import**
 - Homebrew → **mise / asdf** への段階的移行（brew --mise, brew --asf）
+- **dotfiles リポジトリの同期・インポート**
 - ユーザー定義コマンドによる柔軟な取得
 - 将来拡張（uv等）を前提とした構造
 
@@ -47,11 +48,13 @@ go build
 ```text
 goodbye
 ├── export
-│   └── --brew
-│   └── --mise
+│   ├── brew
+│   └── mise
 ├── import
-│   └── --brew
-│   └── --mise
+│   ├── brew
+│   ├── mise
+│   └── dotfiles
+├── sync <repository-url>
 └── brew
     ├── --mise
     └── --asdf
@@ -159,6 +162,62 @@ goodbye brew --asdf --apply
 
 ---
 
+## `goodbye sync`
+
+dotfiles リポジトリを**ローカルにクローン・同期**し、設定ファイルに登録します。
+
+### 実行例
+
+```bash
+# dry-run（デフォルト）
+goodbye sync https://github.com/username/dotfiles
+
+# 実行
+goodbye sync https://github.com/username/dotfiles --apply
+
+# カスタムパスを指定
+goodbye sync https://github.com/username/dotfiles --path ~/my-dotfiles --apply
+```
+
+### 動作
+
+1. 指定された URL から dotfiles リポジトリをクローン（既存なら pull）
+2. リポジトリ URL を `~/.goodbye.toml` に保存
+
+---
+
+## `goodbye import dotfiles`
+
+同期した dotfiles リポジトリから、**設定ファイルをホームディレクトリに配置**します。
+
+### 実行例
+
+```bash
+# dry-run（デフォルト）
+goodbye import dotfiles
+
+# 実行
+goodbye import dotfiles --apply
+
+# コピーモード（シンボリックリンクの代わり）
+goodbye import dotfiles --apply --copy
+
+# バックアップなし
+goodbye import dotfiles --apply --no-backup
+
+# エラーがあっても継続
+goodbye import dotfiles --apply --continue
+```
+
+### 動作
+
+1. `~/.goodbye.toml` の `[dotfiles]` 設定を読み込み
+2. 指定されたファイル（`.zshrc`, `.vimrc` など）をホームディレクトリに配置
+3. デフォルトでシンボリックリンクを作成（`--copy` でコピーモード）
+4. 既存ファイルがある場合はバックアップを作成（`--no-backup` で無効化）
+
+---
+
 ## 設定ファイル（`~/.goodbye.toml`）
 
 `goodbye` の取得挙動は `~/.goodbye.toml` によってカスタマイズできます。
@@ -194,10 +253,34 @@ tap_cmd     = "brew tap | sort -u"
 > パイプや複合コマンドを含む場合、`goodbye` はシェル経由でコマンドを実行します。
 > **信頼できるコマンドのみ**を設定してください。
 
+### dotfiles 設定例
+
+```toml
+[dotfiles]
+repository = "https://github.com/username/dotfiles"
+local_path = "~/.dotfiles"
+source_dir = "macOS"  # リポジトリ内のサブディレクトリ（オプション）
+files = [".zshrc", ".vimrc", ".tmux.conf", ".gitconfig"]
+symlink = true   # false にするとコピーモード
+backup = true    # 既存ファイルのバックアップ
+```
+
+### 設定項目
+
+| キー | 説明 | デフォルト |
+|------|------|-----------|
+| `repository` | dotfiles リポジトリの URL | （なし） |
+| `local_path` | ローカルのクローン先 | `~/.dotfiles` |
+| `source_dir` | リポジトリ内のソースディレクトリ | （ルート） |
+| `files` | インポートするファイル一覧 | `.zshrc`, `.bashrc` など |
+| `symlink` | シンボリックリンクを使用 | `true` |
+| `backup` | 既存ファイルをバックアップ | `true` |
+
 ### 適用範囲
 
 * `goodbye export --brew` が `brew.export.*_cmd` を参照します
 * `goodbye import --brew` は export 済みのファイルを入力として使用します
+* `goodbye sync` / `goodbye import dotfiles` が `dotfiles.*` を参照します
 
 ---
 
@@ -228,6 +311,16 @@ goodbye import --brew
 ```bash
 goodbye brew --mise
 goodbye brew --mise --apply
+```
+
+### dotfiles の同期・インポート
+
+```bash
+# dotfiles リポジトリを同期
+goodbye sync https://github.com/username/dotfiles --apply
+
+# dotfiles をホームディレクトリにインポート
+goodbye import dotfiles --apply
 ```
 
 ---
