@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/yyYank/goodbye/internal/brew"
 	"github.com/yyYank/goodbye/internal/config"
+	"github.com/yyYank/goodbye/internal/dotfiles"
 	"github.com/yyYank/goodbye/internal/mise"
 )
 
@@ -63,21 +64,50 @@ the tools on the current system.`,
 	RunE: runImportMise,
 }
 
+var importDotfilesCmd = &cobra.Command{
+	Use:   "dotfiles",
+	Short: "Import dotfiles to home directory",
+	Long: `Import dotfiles from a synced repository to your home directory.
+
+Reads dotfiles from the local repository (synced via 'goodbye sync')
+and copies or symlinks them to your home directory.
+
+Files to import are configured in ~/.goodbye.toml under [dotfiles].`,
+	Example: `  # Dry-run (default) - preview what will be imported
+  goodbye import dotfiles
+
+  # Actually import
+  goodbye import dotfiles --apply
+
+  # Use copy instead of symlink
+  goodbye import dotfiles --apply --copy
+
+  # Import without backup
+  goodbye import dotfiles --apply --no-backup
+
+  # Continue on errors
+  goodbye import dotfiles --apply --continue`,
+	RunE: runImportDotfiles,
+}
+
 var (
-	importDir        string
-	importApply      bool
-	importVerbose    bool
-	importOnly       string
-	importSkipTaps   bool
-	importContinue   bool
-	importMiseFile   string
-	importMiseGlobal bool
+	importDir            string
+	importApply          bool
+	importVerbose        bool
+	importOnly           string
+	importSkipTaps       bool
+	importContinue       bool
+	importMiseFile       string
+	importMiseGlobal     bool
+	importDotfilesCopy   bool
+	importDotfilesNoBack bool
 )
 
 func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.AddCommand(importBrewCmd)
 	importCmd.AddCommand(importMiseCmd)
+	importCmd.AddCommand(importDotfilesCmd)
 
 	importBrewCmd.Flags().StringVar(&importDir, "dir", ".", "Directory containing exported files")
 	importBrewCmd.Flags().BoolVar(&importApply, "apply", false, "Actually perform the import (default is dry-run)")
@@ -92,6 +122,12 @@ func init() {
 	importMiseCmd.Flags().StringVar(&importMiseFile, "file", "", "Specific file to import (e.g., .mise.toml or .tool-versions)")
 	importMiseCmd.Flags().BoolVar(&importMiseGlobal, "global", false, "Set imported tools as global")
 	importMiseCmd.Flags().BoolVar(&importContinue, "continue", false, "Continue on errors")
+
+	importDotfilesCmd.Flags().BoolVar(&importApply, "apply", false, "Actually perform the import (default is dry-run)")
+	importDotfilesCmd.Flags().BoolVarP(&importVerbose, "verbose", "v", false, "Verbose output")
+	importDotfilesCmd.Flags().BoolVar(&importDotfilesCopy, "copy", false, "Copy files instead of creating symlinks")
+	importDotfilesCmd.Flags().BoolVar(&importDotfilesNoBack, "no-backup", false, "Do not backup existing files")
+	importDotfilesCmd.Flags().BoolVar(&importContinue, "continue", false, "Continue on errors")
 }
 
 func runImportBrew(cmd *cobra.Command, args []string) error {
@@ -123,4 +159,34 @@ func runImportMise(cmd *cobra.Command, args []string) error {
 	}
 
 	return mise.Import(opts)
+}
+
+func runImportDotfiles(cmd *cobra.Command, args []string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// Determine symlink setting: config default, unless --copy flag is set
+	useSymlink := cfg.Dotfiles.Symlink
+	if importDotfilesCopy {
+		useSymlink = false
+	}
+
+	// Determine backup setting: config default, unless --no-backup flag is set
+	useBackup := cfg.Dotfiles.Backup
+	if importDotfilesNoBack {
+		useBackup = false
+	}
+
+	opts := dotfiles.ImportOptions{
+		DryRun:   !importApply,
+		Verbose:  importVerbose,
+		Symlink:  useSymlink,
+		Backup:   useBackup,
+		Files:    cfg.Dotfiles.Files,
+		Continue: importContinue,
+	}
+
+	return dotfiles.Import(cfg, opts)
 }
