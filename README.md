@@ -55,6 +55,7 @@ goodbye
 │   ├── mise
 │   └── dotfiles
 ├── sync <repository-url>
+├── edit
 └── brew
     ├── --mise
     └── --asdf
@@ -183,6 +184,34 @@ goodbye sync https://github.com/username/dotfiles --path ~/my-dotfiles --apply
 
 1. 指定された URL から dotfiles リポジトリをクローン（既存なら pull）
 2. リポジトリ URL を `~/.goodbye.toml` に保存
+
+---
+
+## `goodbye edit`
+
+`~/.goodbye.toml` 設定ファイルを**お好みのエディタで開きます**。
+
+### 実行例
+
+```bash
+# デフォルトエディタで開く（$EDITOR 環境変数、なければ vim）
+goodbye edit
+
+# エディタを指定して開く
+goodbye edit --editor vim
+goodbye edit --editor emacs
+goodbye edit --editor nano
+goodbye edit --editor code
+```
+
+### オプション
+
+* `--editor, -e` : 使用するエディタを指定（デフォルト: `$EDITOR` または `vim`）
+
+### 動作
+
+1. `~/.goodbye.toml` が存在しない場合は自動的に作成
+2. 指定されたエディタ（またはデフォルト）で設定ファイルを開く
 
 ---
 
