@@ -69,8 +69,11 @@ var importDotfilesCmd = &cobra.Command{
 	Short: "Import dotfiles to home directory",
 	Long: `Import dotfiles from a synced repository to your home directory.
 
-Reads dotfiles from the local repository (synced via 'goodbye sync')
-and copies or symlinks them to your home directory.
+Reads dotfiles from the local repository and copies or symlinks them
+to your home directory.
+
+When --url is specified, the repository will be cloned or updated first
+(equivalent to the old 'goodbye sync' command).
 
 Files to import are configured in ~/.goodbye.toml under [dotfiles].`,
 	Example: `  # Dry-run (default) - preview what will be imported
@@ -78,6 +81,12 @@ Files to import are configured in ~/.goodbye.toml under [dotfiles].`,
 
   # Actually import
   goodbye import dotfiles --apply
+
+  # Clone/sync repository and import (replaces 'goodbye sync')
+  goodbye import dotfiles --url https://github.com/username/dotfiles --apply
+
+  # Specify custom local path for repository
+  goodbye import dotfiles --url https://github.com/username/dotfiles --path ~/my-dotfiles --apply
 
   # Use copy instead of symlink
   goodbye import dotfiles --apply --copy
@@ -101,6 +110,8 @@ var (
 	importMiseGlobal     bool
 	importDotfilesCopy   bool
 	importDotfilesNoBack bool
+	importDotfilesURL    string
+	importDotfilesPath   string
 )
 
 func init() {
@@ -128,6 +139,8 @@ func init() {
 	importDotfilesCmd.Flags().BoolVar(&importDotfilesCopy, "copy", false, "Copy files instead of creating symlinks")
 	importDotfilesCmd.Flags().BoolVar(&importDotfilesNoBack, "no-backup", false, "Do not backup existing files")
 	importDotfilesCmd.Flags().BoolVar(&importContinue, "continue", false, "Continue on errors")
+	importDotfilesCmd.Flags().StringVar(&importDotfilesURL, "url", "", "Repository URL to clone/sync (replaces 'goodbye sync')")
+	importDotfilesCmd.Flags().StringVar(&importDotfilesPath, "path", "", "Local path to clone/store dotfiles (default: ~/.dotfiles)")
 }
 
 func runImportBrew(cmd *cobra.Command, args []string) error {
@@ -165,6 +178,32 @@ func runImportDotfiles(cmd *cobra.Command, args []string) error {
 	cfg, err := config.Load()
 	if err != nil {
 		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	// If --url is specified, sync (clone/pull) the repository first
+	if importDotfilesURL != "" {
+		localPath := importDotfilesPath
+		if localPath == "" {
+			localPath = cfg.Dotfiles.LocalPath
+		}
+
+		syncOpts := dotfiles.SyncOptions{
+			Repository: importDotfilesURL,
+			LocalPath:  localPath,
+			DryRun:     !importApply,
+			Verbose:    importVerbose,
+		}
+
+		if err := dotfiles.Sync(cfg, syncOpts); err != nil {
+			return fmt.Errorf("failed to sync repository: %w", err)
+		}
+
+		// If dry-run, don't proceed to import
+		if !importApply {
+			fmt.Println()
+			fmt.Println("Run with --apply to sync the repository and import dotfiles.")
+			return nil
+		}
 	}
 
 	// Determine symlink setting: config default, unless --copy flag is set

@@ -12,6 +12,26 @@ type Config struct {
 	Brew     BrewConfig     `toml:"brew"`
 	Mise     MiseConfig     `toml:"mise"`
 	Dotfiles DotfilesConfig `toml:"dotfiles"`
+	Status   StatusConfig   `toml:"status"`
+}
+
+// StatusConfig represents status command configuration
+type StatusConfig struct {
+	PathRules  []PathRule  `toml:"path_rules"`
+	ToolChecks []ToolCheck `toml:"tool_checks"`
+}
+
+// PathRule represents a path replacement rule for status checks
+type PathRule struct {
+	Pattern     string `toml:"pattern"`     // Pattern to detect (plain string match)
+	Replacement string `toml:"replacement"` // Suggested replacement
+	Description string `toml:"description"` // Description of the rule
+}
+
+// ToolCheck represents a tool installation check
+type ToolCheck struct {
+	Name    string `toml:"name"`    // Tool name
+	Command string `toml:"command"` // Command to check if installed
 }
 
 // BrewConfig represents brew-related configuration
@@ -145,6 +165,40 @@ func DefaultConfig() *Config {
 			Symlink: true,
 			Backup:  true,
 		},
+		Status: StatusConfig{
+			PathRules: []PathRule{
+				{
+					Pattern:     "/usr/local/share/",
+					Replacement: "$HOMEBREW_PREFIX/share/",
+					Description: "Replace hardcoded Intel Homebrew path with architecture-independent variable",
+				},
+				{
+					Pattern:     "/usr/local/bin/",
+					Replacement: "$HOMEBREW_PREFIX/bin/",
+					Description: "Replace hardcoded Intel Homebrew bin path with architecture-independent variable",
+				},
+				{
+					Pattern:     "/opt/homebrew/share/",
+					Replacement: "$HOMEBREW_PREFIX/share/",
+					Description: "Replace hardcoded Apple Silicon Homebrew path with architecture-independent variable",
+				},
+				{
+					Pattern:     "/opt/homebrew/bin/",
+					Replacement: "$HOMEBREW_PREFIX/bin/",
+					Description: "Replace hardcoded Apple Silicon Homebrew bin path with architecture-independent variable",
+				},
+			},
+			ToolChecks: []ToolCheck{
+				{Name: "mise", Command: "mise --version"},
+				{Name: "fzf", Command: "fzf --version"},
+				{Name: "starship", Command: "starship --version"},
+				{Name: "zoxide", Command: "zoxide --version"},
+				{Name: "eza", Command: "eza --version"},
+				{Name: "bat", Command: "bat --version"},
+				{Name: "fd", Command: "fd --version"},
+				{Name: "ripgrep", Command: "rg --version"},
+			},
+		},
 	}
 }
 
@@ -273,6 +327,14 @@ func mergeConfig(defaults, user *Config) *Config {
 	if hasDotfilesSection {
 		result.Dotfiles.Symlink = user.Dotfiles.Symlink
 		result.Dotfiles.Backup = user.Dotfiles.Backup
+	}
+
+	// Status - merge path rules and tool checks (user values extend defaults)
+	if len(user.Status.PathRules) > 0 {
+		result.Status.PathRules = append(result.Status.PathRules, user.Status.PathRules...)
+	}
+	if len(user.Status.ToolChecks) > 0 {
+		result.Status.ToolChecks = append(result.Status.ToolChecks, user.Status.ToolChecks...)
 	}
 
 	return result
