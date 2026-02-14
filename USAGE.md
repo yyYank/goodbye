@@ -82,3 +82,87 @@ Homebrew で入れているもので、mise が管理できるツールを候補
 
 注意:
 - すべてを一気に置き換える前提ではありません。候補を見てから段階的に進めてください。
+
+## dotfilesの同期・インポート
+dotfiles リポジトリをクローンし、設定ファイルやディレクトリをホームディレクトリに配置します。
+
+手順:
+1. dotfiles リポジトリを同期してインポートする。
+   ```bash
+   # まずは確認（dry-run）
+   goodbye import dotfiles --url https://github.com/username/dotfiles
+
+   # 実行
+   goodbye import dotfiles --url https://github.com/username/dotfiles --apply
+
+   # カスタムパスを指定
+   goodbye import dotfiles --url https://github.com/username/dotfiles --path ~/my-dotfiles --apply
+   ```
+2. 既に同期済みなら直接インポートする。
+   ```bash
+   # まずは確認（dry-run）
+   goodbye import dotfiles
+
+   # 実行
+   goodbye import dotfiles --apply
+   ```
+3. 必要に応じてオプションを使い分ける。
+   - `--copy` でシンボリックリンクの代わりにコピー
+   - `--no-backup` で既存ファイルのバックアップを無効化
+   - `--continue` でエラーがあっても継続
+
+設定例 (`~/.goodbye.toml`):
+```toml
+[dotfiles]
+repository = "https://github.com/username/dotfiles"
+local_path = "~/.dotfiles"
+source_dir = "macOS"
+files = [".zshrc", ".vimrc", ".gitconfig"]
+symlink = true
+backup = true
+
+# ディレクトリ単位でのインポート
+[[dotfiles.directories]]
+source = "macOS/claude"  # リポジトリ内のディレクトリ
+target = ".claude"       # ~/.claude に配置
+```
+
+補足:
+- `files` はホームディレクトリ直下に配置されます（source_dir からの相対パス）
+- `directories` はリポジトリルートからの相対パスで指定し、ホームディレクトリ配下に配置されます
+
+## 環境のドリフトチェック
+現在の環境が設定ファイルや推奨状態と乖離していないか確認します。
+
+手順:
+1. 環境の状態を確認する。
+   ```bash
+   # 確認のみ
+   goodbye status
+
+   # 詳細表示
+   goodbye status -v
+   ```
+2. 問題があれば修正を適用する。
+   ```bash
+   goodbye status --apply
+   ```
+
+チェック内容:
+- dotfiles の PATH 設定（ハードコードされた Homebrew パスなど）
+- 推奨ツールのインストール状態（mise, fzf, starship など）
+
+設定例 (`~/.goodbye.toml`):
+```toml
+[status]
+# PATH のハードコード検出ルール
+[[status.path_rules]]
+pattern = "/usr/local/bin/"
+replacement = "$HOMEBREW_PREFIX/bin/"
+description = "Intel Homebrew パスを汎用変数に置換"
+
+# ツールのインストールチェック
+[[status.tool_checks]]
+name = "mise"
+command = "mise --version"
+```
