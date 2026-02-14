@@ -69,6 +69,7 @@ func Import(cfg *config.Config, opts ImportOptions) error {
 	var results []ImportResult
 	var hasErrors bool
 
+	// Import files
 	for _, file := range files {
 		src := filepath.Join(sourceDir, file)
 		dst := filepath.Join(homeDir, file)
@@ -124,6 +125,81 @@ func Import(cfg *config.Config, opts ImportOptions) error {
 			fmt.Printf("  [ok] %s (%s)\n", file, result.Action)
 		}
 		results = append(results, result)
+	}
+
+	// Import directories
+	if len(cfg.Dotfiles.Directories) > 0 {
+		if opts.DryRun || opts.Verbose {
+			fmt.Println()
+			fmt.Println("Directories:")
+		}
+
+		for _, dirMap := range cfg.Dotfiles.Directories {
+			src := filepath.Join(localPath, dirMap.Source)
+			dst := expandTilde(filepath.Join(homeDir, dirMap.Target))
+
+			result := ImportResult{
+				File: dirMap.Source + " -> " + dirMap.Target,
+			}
+
+			// Check if source directory exists
+			srcInfo, err := os.Stat(src)
+			if os.IsNotExist(err) {
+				result.Skipped = true
+				result.Action = "skip (not found in repo)"
+				results = append(results, result)
+				if opts.Verbose || opts.DryRun {
+					fmt.Printf("  [skip] %s (not found in repository)\n", dirMap.Source)
+				}
+				continue
+			}
+			if !srcInfo.IsDir() {
+				result.Skipped = true
+				result.Action = "skip (not a directory)"
+				results = append(results, result)
+				if opts.Verbose || opts.DryRun {
+					fmt.Printf("  [skip] %s (not a directory)\n", dirMap.Source)
+				}
+				continue
+			}
+
+			if opts.DryRun {
+				// Check destination status
+				if info, err := os.Lstat(dst); err == nil {
+					if info.Mode()&os.ModeSymlink != 0 {
+						result.Action = fmt.Sprintf("replace symlink → %s", methodName(useSymlink))
+					} else {
+						if useBackup {
+							result.Action = fmt.Sprintf("backup & %s", methodName(useSymlink))
+						} else {
+							result.Action = fmt.Sprintf("overwrite → %s", methodName(useSymlink))
+						}
+					}
+				} else {
+					result.Action = methodName(useSymlink)
+				}
+				fmt.Printf("  [%s] %s -> %s\n", result.Action, dirMap.Source, dirMap.Target)
+				results = append(results, result)
+				continue
+			}
+
+			// Actual import
+			err = importDirectory(src, dst, useSymlink, useBackup, opts.Verbose)
+			if err != nil {
+				result.Success = false
+				result.Error = err
+				hasErrors = true
+				fmt.Printf("  [error] %s: %v\n", dirMap.Source, err)
+				if !opts.Continue {
+					return fmt.Errorf("failed to import directory %s: %w", dirMap.Source, err)
+				}
+			} else {
+				result.Success = true
+				result.Action = methodName(useSymlink)
+				fmt.Printf("  [ok] %s -> %s (%s)\n", dirMap.Source, dirMap.Target, result.Action)
+			}
+			results = append(results, result)
+		}
 	}
 
 	if opts.DryRun {
@@ -211,4 +287,87 @@ func copyFile(src, dst string) error {
 
 	_, err = io.Copy(destFile, sourceFile)
 	return err
+}
+
+func importDirectory(src, dst string, useSymlink, useBackup bool, verbose bool) error {
+	// Check if destination exists
+	if info, err := os.Lstat(dst); err == nil {
+		// Destination exists
+		isSymlink := info.Mode()&os.ModeSymlink != 0
+
+		if useBackup && !isSymlink {
+			// Backup existing directory
+			backupPath := fmt.Sprintf("%s.backup.%s", dst, time.Now().Format("20060102150405"))
+			if verbose {
+				fmt.Printf("    Backing up %s to %s\n", dst, backupPath)
+			}
+			if err := os.Rename(dst, backupPath); err != nil {
+				return fmt.Errorf("failed to backup: %w", err)
+			}
+		} else {
+			// Remove existing directory/symlink
+			if isSymlink {
+				if err := os.Remove(dst); err != nil {
+					return fmt.Errorf("failed to remove existing symlink: %w", err)
+				}
+			} else {
+				if err := os.RemoveAll(dst); err != nil {
+					return fmt.Errorf("failed to remove existing directory: %w", err)
+				}
+			}
+		}
+	}
+
+	// Ensure parent directory exists
+	if err := os.MkdirAll(filepath.Dir(dst), 0755); err != nil {
+		return fmt.Errorf("failed to create parent directory: %w", err)
+	}
+
+	if useSymlink {
+		// Create symlink
+		if verbose {
+			fmt.Printf("    Creating symlink: %s -> %s\n", dst, src)
+		}
+		return os.Symlink(src, dst)
+	}
+
+	// Copy directory
+	if verbose {
+		fmt.Printf("    Copying directory: %s -> %s\n", src, dst)
+	}
+	return copyDirectory(src, dst)
+}
+
+func copyDirectory(src, dst string) error {
+	srcInfo, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+
+	// Create destination directory
+	if err := os.MkdirAll(dst, srcInfo.Mode()); err != nil {
+		return err
+	}
+
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+
+		if entry.IsDir() {
+			if err := copyDirectory(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			if err := copyFile(srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
 }

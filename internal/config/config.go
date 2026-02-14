@@ -75,12 +75,19 @@ type MiseCommandsConfig struct {
 
 // DotfilesConfig represents dotfiles-related configuration
 type DotfilesConfig struct {
-	Repository string   `toml:"repository"`
-	LocalPath  string   `toml:"local_path"`
-	SourceDir  string   `toml:"source_dir"`
-	Files      []string `toml:"files"`
-	Symlink    bool     `toml:"symlink"`
-	Backup     bool     `toml:"backup"`
+	Repository  string          `toml:"repository"`
+	LocalPath   string          `toml:"local_path"`
+	SourceDir   string          `toml:"source_dir"`
+	Files       []string        `toml:"files"`
+	Directories []DirectoryMap  `toml:"directories"`
+	Symlink     bool            `toml:"symlink"`
+	Backup      bool            `toml:"backup"`
+}
+
+// DirectoryMap represents a directory mapping from source to target
+type DirectoryMap struct {
+	Source string `toml:"source"` // Source directory relative to dotfiles repo (e.g., "macOS/claude")
+	Target string `toml:"target"` // Target directory relative to home (e.g., ".claude")
 }
 
 // DefaultConfig returns the default configuration
@@ -162,8 +169,9 @@ func DefaultConfig() *Config {
 				".gitconfig",
 				".tmux.conf",
 			},
-			Symlink: true,
-			Backup:  true,
+			Directories: []DirectoryMap{},
+			Symlink:     true,
+			Backup:      true,
 		},
 		Status: StatusConfig{
 			PathRules: []PathRule{
@@ -321,9 +329,12 @@ func mergeConfig(defaults, user *Config) *Config {
 	if len(user.Dotfiles.Files) > 0 {
 		result.Dotfiles.Files = user.Dotfiles.Files
 	}
+	if len(user.Dotfiles.Directories) > 0 {
+		result.Dotfiles.Directories = user.Dotfiles.Directories
+	}
 	// For bool fields, only override if user has set dotfiles section
-	// (indicated by having a non-empty Repository or LocalPath or SourceDir or Files)
-	hasDotfilesSection := user.Dotfiles.Repository != "" || user.Dotfiles.LocalPath != "" || user.Dotfiles.SourceDir != "" || len(user.Dotfiles.Files) > 0
+	// (indicated by having a non-empty Repository or LocalPath or SourceDir or Files or Directories)
+	hasDotfilesSection := user.Dotfiles.Repository != "" || user.Dotfiles.LocalPath != "" || user.Dotfiles.SourceDir != "" || len(user.Dotfiles.Files) > 0 || len(user.Dotfiles.Directories) > 0
 	if hasDotfilesSection {
 		result.Dotfiles.Symlink = user.Dotfiles.Symlink
 		result.Dotfiles.Backup = user.Dotfiles.Backup
