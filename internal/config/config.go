@@ -86,8 +86,9 @@ type DotfilesConfig struct {
 
 // DirectoryMap represents a directory mapping from source to target
 type DirectoryMap struct {
-	Source string `toml:"source"` // Source directory relative to dotfiles repo (e.g., "macOS/claude")
-	Target string `toml:"target"` // Target directory relative to home (e.g., ".claude")
+	Source  string `toml:"source"`  // Source directory relative to dotfiles repo (e.g., "macOS/claude")
+	Target  string `toml:"target"`  // Target directory relative to home (e.g., ".claude")
+	Symlink *bool  `toml:"symlink"` // Per-directory symlink override (nil = use global setting)
 }
 
 // DefaultConfig returns the default configuration

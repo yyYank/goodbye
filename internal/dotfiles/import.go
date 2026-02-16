@@ -138,6 +138,12 @@ func Import(cfg *config.Config, opts ImportOptions) error {
 			src := filepath.Join(localPath, dirMap.Source)
 			dst := expandTilde(filepath.Join(homeDir, dirMap.Target))
 
+			// Per-directory symlink override
+			dirSymlink := useSymlink
+			if dirMap.Symlink != nil {
+				dirSymlink = *dirMap.Symlink
+			}
+
 			result := ImportResult{
 				File: dirMap.Source + " -> " + dirMap.Target,
 			}
@@ -167,16 +173,16 @@ func Import(cfg *config.Config, opts ImportOptions) error {
 				// Check destination status
 				if info, err := os.Lstat(dst); err == nil {
 					if info.Mode()&os.ModeSymlink != 0 {
-						result.Action = fmt.Sprintf("replace symlink → %s", methodName(useSymlink))
+						result.Action = fmt.Sprintf("replace symlink → %s", methodName(dirSymlink))
 					} else {
 						if useBackup {
-							result.Action = fmt.Sprintf("backup & %s", methodName(useSymlink))
+							result.Action = fmt.Sprintf("backup & %s", methodName(dirSymlink))
 						} else {
-							result.Action = fmt.Sprintf("overwrite → %s", methodName(useSymlink))
+							result.Action = fmt.Sprintf("overwrite → %s", methodName(dirSymlink))
 						}
 					}
 				} else {
-					result.Action = methodName(useSymlink)
+					result.Action = methodName(dirSymlink)
 				}
 				fmt.Printf("  [%s] %s -> %s\n", result.Action, dirMap.Source, dirMap.Target)
 				results = append(results, result)
@@ -184,7 +190,7 @@ func Import(cfg *config.Config, opts ImportOptions) error {
 			}
 
 			// Actual import
-			err = importDirectory(src, dst, useSymlink, useBackup, opts.Verbose)
+			err = importDirectory(src, dst, dirSymlink, useBackup, opts.Verbose)
 			if err != nil {
 				result.Success = false
 				result.Error = err
@@ -195,7 +201,7 @@ func Import(cfg *config.Config, opts ImportOptions) error {
 				}
 			} else {
 				result.Success = true
-				result.Action = methodName(useSymlink)
+				result.Action = methodName(dirSymlink)
 				fmt.Printf("  [ok] %s -> %s (%s)\n", dirMap.Source, dirMap.Target, result.Action)
 			}
 			results = append(results, result)
