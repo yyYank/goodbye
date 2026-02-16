@@ -99,6 +99,31 @@ Files to import are configured in ~/.goodbye.toml under [dotfiles].`,
 	RunE: runImportDotfiles,
 }
 
+var importDotfilesBackupCmd = &cobra.Command{
+	Use:   "dotfiles-backup",
+	Short: "Recover dotfiles from backups",
+	Long: `Recover dotfiles from backup files created during import.
+
+When 'goodbye import dotfiles --apply' is run with backup enabled,
+existing files are saved as <filename>.backup.<timestamp>.
+This command recovers those backups to their original locations.`,
+	Example: `  # Dry-run (default) - preview what will be recovered
+  goodbye import dotfiles-backup
+
+  # Actually recover
+  goodbye import dotfiles-backup --apply
+
+  # Recover from a specific timestamp
+  goodbye import dotfiles-backup --apply --timestamp 20260215071045
+
+  # Recover latest backups (default)
+  goodbye import dotfiles-backup --apply --timestamp latest
+
+  # Continue on errors
+  goodbye import dotfiles-backup --apply --continue`,
+	RunE: runImportDotfilesBackup,
+}
+
 var (
 	importDir            string
 	importApply          bool
@@ -112,6 +137,7 @@ var (
 	importDotfilesNoBack bool
 	importDotfilesURL    string
 	importDotfilesPath   string
+	importBackupTS      string
 )
 
 func init() {
@@ -119,6 +145,7 @@ func init() {
 	importCmd.AddCommand(importBrewCmd)
 	importCmd.AddCommand(importMiseCmd)
 	importCmd.AddCommand(importDotfilesCmd)
+	importCmd.AddCommand(importDotfilesBackupCmd)
 
 	importBrewCmd.Flags().StringVar(&importDir, "dir", ".", "Directory containing exported files")
 	importBrewCmd.Flags().BoolVar(&importApply, "apply", false, "Actually perform the import (default is dry-run)")
@@ -141,6 +168,11 @@ func init() {
 	importDotfilesCmd.Flags().BoolVar(&importContinue, "continue", false, "Continue on errors")
 	importDotfilesCmd.Flags().StringVar(&importDotfilesURL, "url", "", "Repository URL to clone/sync (replaces 'goodbye sync')")
 	importDotfilesCmd.Flags().StringVar(&importDotfilesPath, "path", "", "Local path to clone/store dotfiles (default: ~/.dotfiles)")
+
+	importDotfilesBackupCmd.Flags().BoolVar(&importApply, "apply", false, "Actually perform the recovery (default is dry-run)")
+	importDotfilesBackupCmd.Flags().BoolVarP(&importVerbose, "verbose", "v", false, "Verbose output")
+	importDotfilesBackupCmd.Flags().StringVar(&importBackupTS, "timestamp", "latest", "Backup timestamp to recover (default: latest)")
+	importDotfilesBackupCmd.Flags().BoolVar(&importContinue, "continue", false, "Continue on errors")
 }
 
 func runImportBrew(cmd *cobra.Command, args []string) error {
@@ -228,4 +260,20 @@ func runImportDotfiles(cmd *cobra.Command, args []string) error {
 	}
 
 	return dotfiles.Import(cfg, opts)
+}
+
+func runImportDotfilesBackup(cmd *cobra.Command, args []string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	opts := dotfiles.BackupOptions{
+		DryRun:    !importApply,
+		Verbose:   importVerbose,
+		Timestamp: importBackupTS,
+		Continue:  importContinue,
+	}
+
+	return dotfiles.Backup(cfg, opts)
 }
