@@ -36,10 +36,14 @@ func installArgs(spec string) ([]string, error) {
 }
 
 func parseList(data []byte) ([]string, []string, error) {
+	type dependency struct {
+		Version string `json:"version"`
+		From    string `json:"from"`
+	}
 	var projects []struct {
-		Dependencies map[string]struct {
-			Version string `json:"version"`
-		} `json:"dependencies"`
+		Dependencies         map[string]dependency `json:"dependencies"`
+		OptionalDependencies map[string]dependency `json:"optionalDependencies"`
+		DevDependencies      map[string]dependency `json:"devDependencies"`
 	}
 	if err := json.Unmarshal(data, &projects); err != nil {
 		return nil, nil, fmt.Errorf("parse pnpm list: %w", err)
@@ -49,13 +53,19 @@ func parseList(data []byte) ([]string, []string, error) {
 	}
 	var items, warnings []string
 	for _, project := range projects {
-		for name, pkg := range project.Dependencies {
-			spec := name + "@" + pkg.Version
-			if _, err := installArgs(spec); err != nil {
-				warnings = append(warnings, fmt.Sprintf("%s: unsupported source or version %q", name, pkg.Version))
-				continue
+		for _, dependencies := range []map[string]dependency{project.Dependencies, project.OptionalDependencies, project.DevDependencies} {
+			for name, pkg := range dependencies {
+				if pkg.From != "" && pkg.From != name {
+					warnings = append(warnings, fmt.Sprintf("%s: unsupported alias or source %q", name, pkg.From))
+					continue
+				}
+				spec := name + "@" + pkg.Version
+				if _, err := installArgs(spec); err != nil {
+					warnings = append(warnings, fmt.Sprintf("%s: unsupported source or version %q", name, pkg.Version))
+					continue
+				}
+				items = append(items, spec)
 			}
-			items = append(items, spec)
 		}
 	}
 	sort.Strings(items)

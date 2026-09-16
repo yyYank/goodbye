@@ -45,6 +45,14 @@ func Test一覧からスコープと固定バージョンを保持する(t *test
 	}
 }
 
+func Test任意依存も保持しエイリアスを誤復元しない(t *testing.T) {
+	input := `[{"dependencies":{"alias":{"from":"actual-package","version":"1.2.3"},"normal":{"from":"normal","version":"2.0.0"}},"optionalDependencies":{"optional":{"version":"3.0.0"}},"devDependencies":{"dev":{"version":"4.0.0"}}}]`
+	items, warnings, err := parseList([]byte(input))
+	if err != nil || !reflect.DeepEqual(items, []string{"dev@4.0.0", "normal@2.0.0", "optional@3.0.0"}) || len(warnings) != 1 {
+		t.Fatalf("%v %v %v", items, warnings, err)
+	}
+}
+
 func Test一覧の空と不正JSONを区別する(t *testing.T) {
 	for _, input := range []string{`[]`, `[{}]`} {
 		items, _, err := parseList([]byte(input))
