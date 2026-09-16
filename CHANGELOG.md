@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.7](https://github.com/yyYank/goodbye/compare/v0.0.6...v0.0.7) - 2026-09-16
+
+- pnpm・Go・Cargo・uvの移行対応とnpm exportの修正 by @yyYank in https://github.com/yyYank/goodbye/pull/22
+
 ## [v0.0.6](https://github.com/yyYank/goodbye/compare/v0.0.5...v0.0.6) - 2026-09-16
 
 - Add goodbye import npm subcommand by @yyYank in https://github.com/yyYank/goodbye/pull/20
