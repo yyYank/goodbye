@@ -8,6 +8,7 @@ import (
 	"github.com/yyYank/goodbye/internal/config"
 	"github.com/yyYank/goodbye/internal/dotfiles"
 	"github.com/yyYank/goodbye/internal/mise"
+	"github.com/yyYank/goodbye/internal/npm"
 )
 
 var importCmd = &cobra.Command{
@@ -62,6 +63,24 @@ the tools on the current system.`,
   # Continue on errors
   goodbye import mise --dir ~/goodbye-export --apply --continue`,
 	RunE: runImportMise,
+}
+
+var importNpmCmd = &cobra.Command{
+	Use:   "npm",
+	Short: "Import npm global packages",
+	Long: `Import globally installed npm packages from an exported file.
+
+Reads npm-global.txt created by 'goodbye export npm' and installs
+the packages on the current system.`,
+	Example: `  # Dry-run (default) - preview what will be imported
+  goodbye import npm --dir ~/npm-export
+
+  # Actually import
+  goodbye import npm --dir ~/npm-export --apply
+
+  # Continue on errors
+  goodbye import npm --dir ~/npm-export --apply --continue`,
+	RunE: runImportNpm,
 }
 
 var importDotfilesCmd = &cobra.Command{
@@ -143,6 +162,7 @@ var (
 func init() {
 	rootCmd.AddCommand(importCmd)
 	importCmd.AddCommand(importBrewCmd)
+	importCmd.AddCommand(importNpmCmd)
 	importCmd.AddCommand(importMiseCmd)
 	importCmd.AddCommand(importDotfilesCmd)
 	importCmd.AddCommand(importDotfilesBackupCmd)
@@ -153,6 +173,11 @@ func init() {
 	importBrewCmd.Flags().StringVar(&importOnly, "only", "", "Import only specific type (formula, cask, or tap)")
 	importBrewCmd.Flags().BoolVar(&importSkipTaps, "skip-taps", false, "Skip importing taps")
 	importBrewCmd.Flags().BoolVar(&importContinue, "continue", false, "Continue on errors")
+
+	importNpmCmd.Flags().StringVar(&importDir, "dir", ".", "Directory containing exported files")
+	importNpmCmd.Flags().BoolVar(&importApply, "apply", false, "Actually perform the import (default is dry-run)")
+	importNpmCmd.Flags().BoolVarP(&importVerbose, "verbose", "v", false, "Verbose output")
+	importNpmCmd.Flags().BoolVar(&importContinue, "continue", false, "Continue on errors")
 
 	importMiseCmd.Flags().StringVar(&importDir, "dir", ".", "Directory containing exported files")
 	importMiseCmd.Flags().BoolVar(&importApply, "apply", false, "Actually perform the import (default is dry-run)")
@@ -191,6 +216,26 @@ func runImportBrew(cmd *cobra.Command, args []string) error {
 	}
 
 	return brew.Import(cfg, opts)
+}
+
+func runImportNpm(cmd *cobra.Command, args []string) error {
+	cfg, err := config.Load()
+	if err != nil {
+		return fmt.Errorf("failed to load config: %w", err)
+	}
+
+	npmCfg := &npm.NpmImportConfig{
+		GlobalInstallCmd: cfg.Npm.Import.GlobalInstallCmd,
+	}
+
+	opts := npm.ImportOptions{
+		Dir:      importDir,
+		DryRun:   !importApply,
+		Verbose:  importVerbose,
+		Continue: importContinue,
+	}
+
+	return npm.Import(npmCfg, opts)
 }
 
 func runImportMise(cmd *cobra.Command, args []string) error {
