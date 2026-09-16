@@ -10,9 +10,20 @@ import (
 // Config represents the ~/.goodbye.toml configuration
 type Config struct {
 	Brew     BrewConfig     `toml:"brew"`
+	Npm      NpmConfig      `toml:"npm"`
 	Mise     MiseConfig     `toml:"mise"`
 	Dotfiles DotfilesConfig `toml:"dotfiles"`
 	Status   StatusConfig   `toml:"status"`
+}
+
+// NpmConfig represents npm-related configuration
+type NpmConfig struct {
+	Export NpmExportConfig `toml:"export"`
+}
+
+// NpmExportConfig represents npm export command configuration
+type NpmExportConfig struct {
+	GlobalCmd string `toml:"global_cmd"`
 }
 
 // StatusConfig represents status command configuration
@@ -106,6 +117,11 @@ func DefaultConfig() *Config {
 				FormulaInstallCmd: "brew install",
 				CaskInstallCmd:    "brew install --cask",
 				TapCmd:            "brew tap",
+			},
+		},
+		Npm: NpmConfig{
+			Export: NpmExportConfig{
+				GlobalCmd: "npm list -g --depth=0 --parseable",
 			},
 		},
 		Mise: MiseConfig{
@@ -285,6 +301,11 @@ func mergeConfig(defaults, user *Config) *Config {
 	}
 	if user.Brew.Import.TapCmd != "" {
 		result.Brew.Import.TapCmd = user.Brew.Import.TapCmd
+	}
+
+	// Npm Export
+	if user.Npm.Export.GlobalCmd != "" {
+		result.Npm.Export.GlobalCmd = user.Npm.Export.GlobalCmd
 	}
 
 	// Mise Commands
