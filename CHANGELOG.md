@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.6](https://github.com/yyYank/goodbye/compare/v0.0.5...v0.0.6) - 2026-09-16
+
+- Add goodbye import npm subcommand by @yyYank in https://github.com/yyYank/goodbye/pull/20
+
 ## [v0.0.5](https://github.com/yyYank/goodbye/compare/v0.0.4...v0.0.5) - 2026-09-16
 
 - Add goodbye import dotfiles-backup subcommand to recover dotfiles fro… by @yyYank in https://github.com/yyYank/goodbye/pull/15
