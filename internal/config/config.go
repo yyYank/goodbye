@@ -19,11 +19,17 @@ type Config struct {
 // NpmConfig represents npm-related configuration
 type NpmConfig struct {
 	Export NpmExportConfig `toml:"export"`
+	Import NpmImportConfig `toml:"import"`
 }
 
 // NpmExportConfig represents npm export command configuration
 type NpmExportConfig struct {
 	GlobalCmd string `toml:"global_cmd"`
+}
+
+// NpmImportConfig represents npm import command configuration
+type NpmImportConfig struct {
+	GlobalInstallCmd string `toml:"global_install_cmd"`
 }
 
 // StatusConfig represents status command configuration
@@ -122,6 +128,9 @@ func DefaultConfig() *Config {
 		Npm: NpmConfig{
 			Export: NpmExportConfig{
 				GlobalCmd: "npm list -g --depth=0 --parseable",
+			},
+			Import: NpmImportConfig{
+				GlobalInstallCmd: "npm install -g",
 			},
 		},
 		Mise: MiseConfig{
@@ -306,6 +315,11 @@ func mergeConfig(defaults, user *Config) *Config {
 	// Npm Export
 	if user.Npm.Export.GlobalCmd != "" {
 		result.Npm.Export.GlobalCmd = user.Npm.Export.GlobalCmd
+	}
+
+	// Npm Import
+	if user.Npm.Import.GlobalInstallCmd != "" {
+		result.Npm.Import.GlobalInstallCmd = user.Npm.Import.GlobalInstallCmd
 	}
 
 	// Mise Commands

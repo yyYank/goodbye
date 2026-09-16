@@ -107,6 +107,13 @@ func runCommand(cmdStr string) ([]string, error) {
 	return lines, scanner.Err()
 }
 
+func runCommandExec(cmdStr string) error {
+	cmd := exec.Command("sh", "-c", cmdStr)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
 func writeLines(path string, lines []string) error {
 	file, err := os.Create(path)
 	if err != nil {
