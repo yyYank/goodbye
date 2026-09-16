@@ -84,7 +84,24 @@ func parseGlobalPackages(lines []string) []string {
 		if line == "" {
 			continue
 		}
-		packages = append(packages, filepath.Base(line))
+		// npm also prints the global root. Only paths beneath node_modules
+		// identify packages; keep both components of a scoped package name.
+		line = filepath.ToSlash(filepath.Clean(line))
+		const marker = "/node_modules/"
+		index := strings.LastIndex(line, marker)
+		if index < 0 {
+			continue
+		}
+		name := line[index+len(marker):]
+		parts := strings.Split(name, "/")
+		if strings.HasPrefix(name, "@") {
+			if len(parts) != 2 || len(parts[0]) < 2 || parts[1] == "" {
+				continue
+			}
+		} else if len(parts) != 1 || name == "" {
+			continue
+		}
+		packages = append(packages, name)
 	}
 	return packages
 }

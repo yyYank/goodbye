@@ -60,6 +60,52 @@ mise で管理しているツールをファイルに書き出し、新PCで復�
    - `--global` でインストール後に `mise use -g` を実行
    - `--continue` でエラーがあっても継続
 
+## pnpm / Go / Cargo / uv の移行
+
+旧PCで一覧を export し、出力ディレクトリを新PCにコピーして import します。
+Node.js / Go / Rust / Python 自体やパッケージマネージャーの移行は対象外です。
+
+```bash
+# 旧PC: 一覧を確認し、保存
+goodbye export pnpm --dir ~/goodbye-export
+goodbye export pnpm --dir ~/goodbye-export --apply
+goodbye export go --dir ~/goodbye-export --apply
+goodbye export cargo --dir ~/goodbye-export --apply
+goodbye export uv --dir ~/goodbye-export --apply
+
+# 新PC: 内容を確認してから復元（pnpm を go / cargo / uv に置換可能）
+goodbye import pnpm --dir ~/goodbye-export
+goodbye import pnpm --dir ~/goodbye-export --apply
+goodbye import pnpm --dir ~/goodbye-export --apply --continue --verbose
+```
+
+| 対象 | 一覧の取得 | 復元コマンド |
+| --- | --- | --- |
+| pnpm | `pnpm list -g --depth=0 --json` | `pnpm add -g -- <name>@<version>` |
+| Go | `go env -json GOBIN GOPATH` とバイナリのビルド情報 | `go install <package>@<version>` |
+| Cargo | `cargo install --list --color never` | `cargo install <crate> --version =<version>` |
+| uv | `uv tool list --show-version-specifiers --show-extras --show-with --color never --offline` | `uv tool install -- <name>==<version>` |
+
+出力はそれぞれ `pnpm-global.txt` / `go-tools.txt` / `cargo-tools.txt` / `uv-tools.txt`。
+一覧はソート・重複排除され、空一覧でも `--apply` なら空ファイルを保存します。
+取得に失敗した場合は既存ファイルを書き換えずエラーになります。
+import はファイルがない場合・不正な形式の場合にエラーになり、インストールを開始しません。
+`--continue` はインストール失敗後の継続指定であり、不正なファイルを許容する指定ではありません。
+
+復元範囲:
+
+- pnpm: registry パッケージの直接依存（optional/dev を含む）を対象に、スコープ名・固定バージョンを保持します。エイリアスや、ローカルリンクなど固定バージョンとして取得できない項目は警告して除外します。
+- Go: `GOBIN`、未指定なら `GOPATH` の先頭エントリの `bin` を走査します。配置済みバイナリ自体は実行しません。非Goバイナリ、バージョン不明・`(devel)`、replace を含むビルドは警告して除外します。別の配置先や過去の Go 環境までは探索しません。
+- Cargo: crates.io の crate 名・バージョンを対象にします。Git／ローカル／別ソースの表示がある項目は警告して除外します。features、ビルドフラグ、選択したバイナリの情報は復元しません。
+- uv: registry の通常のツールを対象にします。Git／ローカルソース、extras、`--with` などの追加要件は警告して除外します。詳細一覧の各フラグに対応する uv が必要です。Python のバージョンや index の設定は復元しません。
+- 保存するのは直接導入したツールのバージョンです。依存全体のロック、認証情報、レジストリ設定、ビルド環境は含みません。Go は `go install` 由来かどうかの厳密な判別はできません。
+
+### 古い npm export ファイルについて
+
+以前の npm export は、一覧ルートを `lib` として含め、`@scope/name` を `name` に短縮していました。
+修正版はルートを除外し、スコープ付きの名前を保持します。
+古い `npm-global.txt` から失われたスコープは復元できないため、元の環境で修正版の `goodbye export npm --dir <保存先> --apply` を実行し直してください。
+
 ## brewからmiseへの移行
 Homebrew で入れているもので、mise が管理できるツールを候補として抽出し、段階的に移行します。
 デフォルトは dry-run で、候補と実行内容だけ表示されます。

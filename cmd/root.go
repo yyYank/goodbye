@@ -14,10 +14,9 @@ var rootCmd = &cobra.Command{
 environment package management step by step.
 
 Key features:
-  - Homebrew export / import
+  - Homebrew, npm, pnpm, Go, Cargo and uv export / import
   - Homebrew -> mise gradual migration (brew --mise)
   - User-defined commands for flexible retrieval
-  - Future extensions (uv, etc.) friendly structure
 
 All commands are dry-run by default. Use --apply to make actual changes.`,
 }
