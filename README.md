@@ -13,10 +13,10 @@
 ## 特徴
 
 - Homebrew 環境の **export / import**
+- npm / pnpm / Go / Cargo / uv の **export / import**
 - Homebrew → **mise / asdf** への段階的移行（brew --mise, brew --asf）
 - **dotfiles リポジトリの同期・インポート**
 - ユーザー定義コマンドによる柔軟な取得
-- 将来拡張（uv等）を前提とした構造
 
 ---
 
@@ -49,10 +49,20 @@ go build
 goodbye
 ├── export
 │   ├── brew
-│   └── mise
+│   ├── mise
+│   ├── npm
+│   ├── pnpm
+│   ├── go
+│   ├── cargo
+│   └── uv
 ├── import
 │   ├── brew
 │   ├── mise
+│   ├── npm
+│   ├── pnpm
+│   ├── go
+│   ├── cargo
+│   ├── uv
 │   └── dotfiles [--url <repository-url>]
 ├── status
 ├── edit
@@ -65,6 +75,34 @@ goodbye
 実際に変更を行う場合は `--apply` を明示的に指定します。
 
 ---
+
+## pnpm / Go / Cargo / uv の移行
+
+ツール名とインストール済みバージョンを保存し、別環境で復元します。
+対象のパッケージマネージャーは事前にインストールしてください。
+
+| コマンドの対象 | 出力ファイル | 保存形式 |
+| --- | --- | --- |
+| `pnpm` | `pnpm-global.txt` | `@scope/name@1.2.3` または `name@1.2.3` |
+| `go` | `go-tools.txt` | `example.com/tools/cmd/tool@v1.2.3` |
+| `cargo` | `cargo-tools.txt` | `crate-name@1.2.3` |
+| `uv` | `uv-tools.txt` | `tool-name==1.2.3` |
+
+```bash
+# pnpm を go / cargo / uv に置き換えて利用できます
+goodbye export pnpm --dir ~/goodbye-export
+goodbye export pnpm --dir ~/goodbye-export --apply
+goodbye import pnpm --dir ~/goodbye-export
+goodbye import pnpm --dir ~/goodbye-export --apply --continue
+```
+
+- export の dry-run は一覧を取得・表示しますが、ファイルは作りません。
+- import の dry-run はファイルを検証して予定コマンドを表示し、インストールしません。
+- import は空行・`#` コメント・重複を無視し、全行を検証してから実行します。
+- `--continue` は失敗後も続行しますが、1件でも失敗するとエラー終了します。
+- `--verbose` はインストール出力を表示します。失敗時の出力は指定なしでも表示します。
+
+対応範囲・除外条件は [USAGE.md](USAGE.md#pnpm--go--cargo--uv-の移行) を参照してください。
 
 ## `goodbye export brew`
 
