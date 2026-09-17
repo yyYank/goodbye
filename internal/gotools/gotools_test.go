@@ -31,6 +31,25 @@ func Testビルド情報からコマンドパスとモジュールバージョ�
 	}
 }
 
+func Testローカル変更を含むGoバイナリはエクスポートしない(t *testing.T) {
+	for _, info := range []*debug.BuildInfo{
+		{Path: "example.com/tool", Main: debug.Module{Path: "example.com/tool", Version: "v1.0.1-0.20260916082842-7a616f37eb51+dirty"}},
+		{Path: "example.com/tool", Main: debug.Module{Path: "example.com/tool", Version: "v1.0.0"}, Settings: []debug.BuildSetting{{Key: "vcs.modified", Value: "true"}}},
+	} {
+		if _, err := buildSpec(info); err == nil {
+			t.Errorf("accepted dirty build: %+v", info)
+		}
+		dir := t.TempDir()
+		if err := os.WriteFile(filepath.Join(dir, "tool"), []byte("fixture"), 0700); err != nil {
+			t.Fatal(err)
+		}
+		items, warnings, err := scanDir(dir, func(string) (*debug.BuildInfo, error) { return info, nil })
+		if err != nil || len(items) != 0 || len(warnings) != 1 {
+			t.Fatalf("dirty export: %v %v %v", items, warnings, err)
+		}
+	}
+}
+
 func Testインストール引数は完全なパスとバージョンを要求する(t *testing.T) {
 	for _, spec := range []string{"example.com/cmd/tool@v1.2.3", "example.com/tool/v2@v2.0.0-20260101000000-abcdef123456", "example.com/tool@v2.0.0+incompatible"} {
 		args, err := installArgs(spec)

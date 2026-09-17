@@ -7,6 +7,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"github.com/BurntSushi/toml"
 )
 
 // ImportOptions represents options for the mise import command
@@ -16,7 +18,7 @@ type ImportOptions struct {
 	DryRun   bool
 	Verbose  bool
 	Continue bool
-	Global   bool // use -g flag when installing
+	Global   bool // install and activate with mise use -g --pin
 }
 
 // Import imports mise tools from a configuration file
@@ -97,11 +99,11 @@ func Import(opts ImportOptions) error {
 	if opts.DryRun {
 		fmt.Println("\n[dry-run] Would install the following tools:")
 		for _, tool := range tools {
-			globalFlag := ""
+			command := "install"
 			if opts.Global {
-				globalFlag = " -g"
+				command = "use -g --pin"
 			}
-			fmt.Printf("  mise install%s %s@%s\n", globalFlag, tool.Name, tool.Version)
+			fmt.Printf("  mise %s %s@%s\n", command, tool.Name, tool.Version)
 		}
 		return nil
 	}
@@ -113,7 +115,7 @@ func Import(opts ImportOptions) error {
 
 		args := []string{"install"}
 		if opts.Global {
-			args = append(args, "-g")
+			args = []string{"use", "-g", "--pin"}
 		}
 		args = append(args, fmt.Sprintf("%s@%s", tool.Name, tool.Version))
 
@@ -135,17 +137,6 @@ func Import(opts ImportOptions) error {
 		fmt.Printf("  Successfully installed %s@%s\n", tool.Name, tool.Version)
 		succeeded = append(succeeded, tool)
 
-		// Set as global if requested
-		if opts.Global {
-			useCmd := exec.Command("mise", "use", "-g", fmt.Sprintf("%s@%s", tool.Name, tool.Version))
-			if opts.Verbose {
-				useCmd.Stdout = os.Stdout
-				useCmd.Stderr = os.Stderr
-			}
-			if err := useCmd.Run(); err != nil {
-				fmt.Printf("  Warning: Failed to set %s@%s as global: %v\n", tool.Name, tool.Version, err)
-			}
-		}
 	}
 
 	// Summary
@@ -169,58 +160,38 @@ func Import(opts ImportOptions) error {
 
 // ParseTOML parses a .mise.toml file and extracts tools
 func ParseTOML(content string) ([]InstalledTool, error) {
+	var config struct{ Tools map[string]any }
+	metadata, err := toml.Decode(content, &config)
+	if err != nil {
+		return nil, err
+	}
 	var tools []InstalledTool
-	inToolsSection := false
-
-	scanner := bufio.NewScanner(strings.NewReader(content))
-	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-
-		// Skip empty lines and comments
-		if line == "" || strings.HasPrefix(line, "#") {
+	// Metadata retains declaration order, including quoted backend keys.
+	for _, key := range metadata.Keys() {
+		if len(key) != 2 || key[0] != "tools" {
 			continue
 		}
-
-		// Check for section headers
-		if strings.HasPrefix(line, "[") {
-			inToolsSection = strings.HasPrefix(line, "[tools]")
-			continue
-		}
-
-		// Parse tool entries in [tools] section
-		if inToolsSection {
-			parts := strings.SplitN(line, "=", 2)
-			if len(parts) == 2 {
-				name := strings.TrimSpace(parts[0])
-				version := strings.TrimSpace(parts[1])
-				// Remove quotes
-				version = strings.Trim(version, `"'`)
-
-				// Handle array format: ["3.12", "3.11"]
-				if strings.HasPrefix(version, "[") {
-					version = strings.Trim(version, "[]")
-					versions := strings.Split(version, ",")
-					for _, v := range versions {
-						v = strings.TrimSpace(v)
-						v = strings.Trim(v, `"'`)
-						if v != "" {
-							tools = append(tools, InstalledTool{
-								Name:    name,
-								Version: v,
-							})
-						}
-					}
-				} else {
-					tools = append(tools, InstalledTool{
-						Name:    name,
-						Version: version,
-					})
+		name := key[1]
+		var versions []string
+		switch value := config.Tools[name].(type) {
+		case string:
+			versions = []string{value}
+		case []any:
+			for _, item := range value {
+				version, ok := item.(string)
+				if !ok {
+					return nil, fmt.Errorf("tool %s: versions must be strings", name)
 				}
+				versions = append(versions, version)
 			}
+		default:
+			return nil, fmt.Errorf("tool %s: expected a version string or array; use mise directly for tool options", name)
+		}
+		for _, version := range versions {
+			tools = append(tools, InstalledTool{Name: name, Version: version})
 		}
 	}
-
-	return tools, scanner.Err()
+	return tools, nil
 }
 
 // ParseToolVersions parses a .tool-versions file

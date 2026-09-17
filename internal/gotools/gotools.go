@@ -29,6 +29,14 @@ func installArgs(spec string) ([]string, error) {
 }
 
 func buildSpec(info *debug.BuildInfo) (string, error) {
+	if strings.HasSuffix(info.Main.Version, "+dirty") {
+		return "", fmt.Errorf("local changes cannot be restored from a module version")
+	}
+	for _, setting := range info.Settings {
+		if setting.Key == "vcs.modified" && setting.Value == "true" {
+			return "", fmt.Errorf("local changes cannot be restored from a module version")
+		}
+	}
 	if info.Main.Replace != nil {
 		return "", fmt.Errorf("main module has a replacement")
 	}

@@ -3,6 +3,7 @@ package npm
 import (
 	"bufio"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -17,6 +18,8 @@ type ExportOptions struct {
 	Dir     string
 	DryRun  bool
 	Verbose bool
+	Format  string
+	Out     io.Writer
 }
 
 func DefaultExportConfig() *NpmExportConfig {
@@ -26,6 +29,12 @@ func DefaultExportConfig() *NpmExportConfig {
 }
 
 func Export(cfg *NpmExportConfig, opts ExportOptions) error {
+	if opts.Format == "mise" {
+		return exportMise(opts)
+	}
+	if opts.Format != "" && opts.Format != "text" {
+		return fmt.Errorf("invalid export format %q (must be text or mise)", opts.Format)
+	}
 	if opts.Dir == "" {
 		opts.Dir = "."
 	}

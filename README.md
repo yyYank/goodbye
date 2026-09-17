@@ -104,6 +104,22 @@ goodbye import pnpm --dir ~/goodbye-export --apply --continue
 
 対応範囲・除外条件は [USAGE.md](USAGE.md#pnpm--go--cargo--uv-の移行) を参照してください。
 
+### mise 管理へまとめて移行
+
+npm / pnpm / Go / Cargo / uv は `--format mise` を指定すると、固定バージョン付きのツール設定を同じ `.mise.toml` に集約できます。省略時は従来のテキスト形式です。
+
+```bash
+goodbye export npm --format mise --dir ~/goodbye-export --apply
+goodbye export go --format mise --dir ~/goodbye-export --apply
+
+# 復元内容を確認してから、mise のグローバル設定へ登録
+goodbye import mise --dir ~/goodbye-export --global
+goodbye import mise --dir ~/goodbye-export --global --apply
+```
+
+同じツール・バージョンは重複させず、異なるバージョンとの競合はファイルを変更せずエラーにします。既存設定の値は保持しますが、項目追加時に TOML を再整形するためコメントは保持しません。
+詳細は [mise 形式の利用手順](USAGE.md#mise-形式でまとめて管理する) を参照してください。
+
 ## `goodbye export brew`
 
 現在の Homebrew 環境を **最小かつ意図的な粒度**で書き出します。
