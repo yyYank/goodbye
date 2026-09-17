@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.8](https://github.com/yyYank/goodbye/compare/v0.0.7...v0.0.8) - 2026-09-17
+
+- [Mise] 各ツールの設定をmise形式へ集約 by @yyYank in https://github.com/yyYank/goodbye/pull/24
+
 ## [v0.0.7](https://github.com/yyYank/goodbye/compare/v0.0.6...v0.0.7) - 2026-09-16
 
 - pnpm・Go・Cargo・uvの移行対応とnpm exportの修正 by @yyYank in https://github.com/yyYank/goodbye/pull/22
