@@ -11,10 +11,13 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/yyYank/goodbye/internal/miseconfig"
 )
 
 type Options struct {
 	Dir                       string
+	Format                    string
 	DryRun, Verbose, Continue bool
 	Out                       io.Writer
 }
@@ -66,6 +69,9 @@ func (o Options) directory() (string, error) {
 }
 
 func (m Manager) Export(opts Options) error {
+	if opts.Format != "" && opts.Format != "text" && opts.Format != "mise" {
+		return fmt.Errorf("invalid export format %q (must be text or mise)", opts.Format)
+	}
 	dir, err := opts.directory()
 	if err != nil {
 		return err
@@ -87,6 +93,13 @@ func (m Manager) Export(opts Options) error {
 		if len(lines) == 0 || lines[len(lines)-1] != item {
 			lines = append(lines, item)
 		}
+	}
+	if opts.Format == "mise" {
+		tools, err := miseVersions(m.Name, lines)
+		if err != nil {
+			return err
+		}
+		return miseconfig.Export(dir, tools, opts.DryRun, out)
 	}
 	path := filepath.Join(dir, m.File)
 	if opts.DryRun {
