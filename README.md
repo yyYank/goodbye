@@ -66,13 +66,70 @@ goodbye
 │   └── dotfiles [--url <repository-url>]
 ├── status
 ├── edit
+├── convert --to mise
 └── brew
     ├── --mise
     └── --asdf
 ```
 
-すべてのコマンドは **デフォルトで dry-run** です。
+環境に変更を加えるコマンドは **デフォルトで dry-run** です。
 実際に変更を行う場合は `--apply` を明示的に指定します。
+
+---
+
+## インストールコマンドを mise 向けに変換
+
+README などのインストールコマンドを標準入力または1つの引数で渡します。
+`convert` はコマンド文字列を出力するだけで、インストールや設定変更は実行しません。
+`--apply` は不要です。
+
+```sh
+echo 'go install github.com/foo/bar@latest' | goodbye convert --to mise
+# mise use -g go:github.com/foo/bar@latest
+
+goodbye convert --to mise 'npm install -g prettier@3.6.2'
+# mise use -g npm:prettier@3.6.2
+```
+
+| 対応する入力 | 出力 |
+| --- | --- |
+| `go install github.com/foo/bar@v1.2.3` | `mise use -g go:github.com/foo/bar@v1.2.3` |
+| `npm install -g prettier` / `npm i -g prettier` | `mise use -g npm:prettier` |
+| `pnpm add -g prettier` | `mise use -g npm:prettier` |
+| `cargo install ripgrep` | `mise use -g cargo:ripgrep` |
+| `cargo install ripgrep --version 14.1.1` | `mise use -g cargo:ripgrep@14.1.1` |
+| `uv tool install ruff` | `mise use -g pypi:ruff` |
+| `uv tool install ruff==0.9.1` | `mise use -g pypi:ruff@0.9.1` |
+
+Python の変換先は mise の現行名である [`pypi:` backend](https://mise.jdx.dev/dev-tools/backends/pipx.html) です。
+npm のスコープ付きパッケージにも対応します。バージョンを省略した入力にはバージョンを補いません。
+
+標準入力では複数行をまとめて変換できます。各行は上記の引数順で、1コマンド・1パッケージに対応します。
+引数で渡す場合は従来どおり1行だけを指定します。
+パッケージ引数全体を単一引用符・二重引用符で囲むこともできます。
+Go は `@version` が必須、Cargo の `--version` は完全なバージョン（例: `14.1.1`）、
+Python のバージョン指定は `==version` に対応します。バージョン範囲は未対応です。
+未知のオプション、URL・ローカルパス指定、同一行の複数コマンド、パイプ、リダイレクト、
+変数展開・コマンド置換などは意味を落として変換せず、エラーにします。
+成功時の標準出力は変換済みコマンドだけです。全行を検証してから入力順に出力し、
+入力エラー時は標準出力を空にして、標準エラーに行番号と説明を出して非ゼロで終了します。
+
+```sh
+# 1行ごとに go install / npm install -g などが書かれたファイル
+cat ~/Downloads/go-export/go-installs.sh | goodbye convert --to mise
+
+# goodbye export が書き出したパッケージ一覧（標準出力のログではなくファイル）
+cat ~/Downloads/go-export/go-tools.txt | goodbye convert --from go --to mise
+cat ~/Downloads/npm-export/npm-global.txt | goodbye convert --from npm --to mise
+```
+
+`--from` は `go` / `npm` / `pnpm` / `cargo` / `uv` に対応し、export のテキスト形式を読みます。
+Go は `module@version`、npm / pnpm は `package` または `package@version`、
+Cargo は `crate@version`、uv は `package==version` を変換します。
+`--from` なしの場合はインストールコマンドとして解釈します。
+どちらも空行と行全体のコメント（`#`、シバンを含む）を読み飛ばします。
+空行・コメントだけの入力はエラーです。`.sh` は実行しないため、`set -e`、ループ、
+行継続、行末コメントなどのシェル構文は未対応としてエラーにします。
 
 ---
 
