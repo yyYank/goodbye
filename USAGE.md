@@ -57,7 +57,7 @@ mise で管理しているツールをファイルに書き出し、新PCで復�
    goodbye import mise --dir ~/goodbye-export --file .tool-versions --apply
    ```
 4. 必要に応じてオプションを使い分ける。
-   - `--global` でインストール後に `mise use -g` を実行
+   - `--global` で `mise use -g --pin` を実行し、インストールとグローバル登録を行う
    - `--continue` でエラーがあっても継続
 
 ## pnpm / Go / Cargo / uv の移行
@@ -95,10 +95,47 @@ import はファイルがない場合・不正な形式の場合にエラーに�
 復元範囲:
 
 - pnpm: registry パッケージの直接依存（optional/dev を含む）を対象に、スコープ名・固定バージョンを保持します。エイリアスや、ローカルリンクなど固定バージョンとして取得できない項目は警告して除外します。
-- Go: `GOBIN`、未指定なら `GOPATH` の先頭エントリの `bin` を走査します。配置済みバイナリ自体は実行しません。非Goバイナリ、バージョン不明・`(devel)`、replace を含むビルドは警告して除外します。別の配置先や過去の Go 環境までは探索しません。
+- Go: `GOBIN`、未指定なら `GOPATH` の先頭エントリの `bin` を走査します。配置済みバイナリ自体は実行しません。非Goバイナリ、バージョン不明・`(devel)`、ローカル変更あり（`+dirty` / `vcs.modified=true`）、replace を含むビルドは警告して除外します。別の配置先や過去の Go 環境までは探索しません。
 - Cargo: crates.io の crate 名・バージョンを対象にします。Git／ローカル／別ソースの表示がある項目は警告して除外します。features、ビルドフラグ、選択したバイナリの情報は復元しません。
 - uv: registry の通常のツールを対象にします。Git／ローカルソース、extras、`--with` などの追加要件は警告して除外します。詳細一覧の各フラグに対応する uv が必要です。Python のバージョンや index の設定は復元しません。
 - 保存するのは直接導入したツールのバージョンです。依存全体のロック、認証情報、レジストリ設定、ビルド環境は含みません。Go は `go install` 由来かどうかの厳密な判別はできません。
+
+### mise 形式でまとめて管理する
+
+npm / pnpm / Go / Cargo / uv の export に `--format mise` を指定すると、通常の `.txt` の代わりに `<出力先>/.mise.toml` へ集約します。
+`--format text`（既定）は従来の形式です。`goodbye export mise --format toml` とは別の機能です。
+
+```bash
+# まずは集約結果を確認（ファイル変更なし）
+goodbye export npm --format mise --dir ~/goodbye-export
+
+# 同じディレクトリに順番に書き出す
+goodbye export npm --format mise --dir ~/goodbye-export --apply
+goodbye export pnpm --format mise --dir ~/goodbye-export --apply
+goodbye export go --format mise --dir ~/goodbye-export --apply
+goodbye export cargo --format mise --dir ~/goodbye-export --apply
+goodbye export uv --format mise --dir ~/goodbye-export --apply
+
+# 移行先で mise のグローバル設定へ登録
+goodbye import mise --dir ~/goodbye-export --global
+goodbye import mise --dir ~/goodbye-export --global --apply --verbose
+```
+
+| 元の管理方法 | mise のキー例 |
+| --- | --- |
+| npm / pnpm | `"npm:@scope/cli" = "1.2.3"` |
+| Go | `"go:example.com/tools/cmd/tool" = "v1.2.3"` |
+| Cargo | `"cargo:ripgrep" = "14.1.1"` |
+| uv | `"pypi:black" = "25.1.0"` |
+
+- 復元先には mise と、各 CLI のビルド・実行に必要な Node.js / Go / Rust / Python / uv 等を用意してください。ランタイムのバージョンは自動で追加しません。`pypi:` など各バックエンドに対応する mise が必要です。
+- npm の mise 形式は `npm list -g --depth=0 --json --long` で実際のバージョンを取得します。`npm.export.global_cmd` は通常形式だけに適用されます。ローカルリンク・エイリアス・判別できた非registryソース・バージョン不明の項目は理由付きで除外します。他の管理方法の除外条件は通常形式と同じです。
+- 同じ完全なキー・同じバージョンは変更しません。異なるバージョンや、同じキーの配列・オプション付き設定がある場合は競合として停止します。短縮名とバックエンド名の同一性は推測しません。
+- npm と pnpm の同じパッケージは同じ `npm:` キーになります。両方に異なるバージョンがあれば、どちらを採用するか決めて export 元または出力設定を調整してください。
+- 競合・不正な TOML の場合は既存ファイルを変更しません。追加時は既存の設定値を保持して TOML を再出力するため、コメント・書式・記述順序は保持しません。
+- 出力は一時ファイルから置き換えます。同時書き込みは `.mise.toml.lock` で拒否します。異常終了でロックだけ残った場合は、他の export が動いていないことを確認してからロックを取り除いてください。
+- `goodbye import mise` はバージョン文字列・文字列配列を読み込みます。追加オプション付きの既存設定もまとめた場合は、mise 自体で設定を適用してください。
+- export 自体は mise のグローバル設定を変更せず、元の npm / Go 等のインストールも削除しません。移行後は `which <コマンド名>` で古い配置先が優先されていないか確認してください。
 
 ### 古い npm export ファイルについて
 
