@@ -114,3 +114,63 @@ func Test変換先と引数の数を検証する(t *testing.T) {
 		}
 	}
 }
+
+func Test複数行とexport一覧をまとめて変換する(t *testing.T) {
+	for _, tc := range []struct{ from, input, want string }{
+		{"", "#!/bin/sh\r\n# tools\r\n\r\ngo install example.com/a@v1.2.3\r\nnpm i -g @scope/tool\ncargo install ripgrep", "mise use -g go:example.com/a@v1.2.3\nmise use -g npm:@scope/tool\nmise use -g cargo:ripgrep\n"},
+		{"go", "# exported\nexample.com/a@v1.2.3\nexample.com/b@latest\n", "mise use -g go:example.com/a@v1.2.3\nmise use -g go:example.com/b@latest\n"},
+		{"npm", "@scope/tool\nprettier@3.6.2\n", "mise use -g npm:@scope/tool\nmise use -g npm:prettier@3.6.2\n"},
+		{"pnpm", "@scope/tool@1.2.3\n", "mise use -g npm:@scope/tool@1.2.3\n"},
+		{"cargo", "ripgrep@14.1.1\n", "mise use -g cargo:ripgrep@14.1.1\n"},
+		{"uv", "ruff==0.9.1\nblack==1!25.1.0\n", "mise use -g pypi:ruff@0.9.1\nmise use -g 'pypi:black@1!25.1.0'\n"},
+	} {
+		t.Run(tc.from, func(t *testing.T) {
+			c := newConvertCommand()
+			var out bytes.Buffer
+			c.SetOut(&out)
+			c.SetIn(strings.NewReader(tc.input))
+			args := []string{"--to", "mise"}
+			if tc.from != "" {
+				args = append(args, "--from", tc.from)
+			}
+			c.SetArgs(args)
+			if err := c.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if out.String() != tc.want {
+				t.Fatalf("got %q want %q", out.String(), tc.want)
+			}
+		})
+	}
+}
+
+func Test不正行を含む一覧は行番号を返し何も出力しない(t *testing.T) {
+	for _, tc := range []struct{ from, input, line string }{
+		{"", "# comment\nnpm install -g foo\nset -e\n", "line 3"},
+		{"", "go install example.com/a@v1.0.0\ninvalid\n", "line 2"},
+		{"go", "example.com/a@v1.0.0\ngo install example.com/b@v1.0.0", "line 2"},
+		{"npm", "foo\nfoo --ignore-scripts", "line 2"},
+		{"cargo", "ripgrep@14.1.1\nfoo@1.0.0 --git evil", "line 2"},
+		{"uv", "ruff==0.9.1\nruff>=0.9", "line 2"},
+		{"go", "example.com/a@v1.0.0\n$(touch marker)", "line 2"},
+		{"unknown", "foo", "unsupported source"},
+		{"", "# comment\n\n", "no"},
+	} {
+		t.Run(tc.from+tc.input, func(t *testing.T) {
+			c := newConvertCommand()
+			var out bytes.Buffer
+			c.SetOut(&out)
+			c.SetErr(&bytes.Buffer{})
+			c.SetIn(strings.NewReader(tc.input))
+			args := []string{"--to", "mise"}
+			if tc.from != "" {
+				args = append(args, "--from", tc.from)
+			}
+			c.SetArgs(args)
+			err := c.Execute()
+			if err == nil || !strings.Contains(err.Error(), tc.line) || out.Len() != 0 {
+				t.Fatalf("err=%v out=%q", err, out.String())
+			}
+		})
+	}
+}

@@ -104,14 +104,32 @@ goodbye convert --to mise 'npm install -g prettier@3.6.2'
 Python の変換先は mise の現行名である [`pypi:` backend](https://mise.jdx.dev/dev-tools/backends/pipx.html) です。
 npm のスコープ付きパッケージにも対応します。バージョンを省略した入力にはバージョンを補いません。
 
-初期版は上記の引数順で、1コマンド・1パッケージのみ対応します。
+標準入力では複数行をまとめて変換できます。各行は上記の引数順で、1コマンド・1パッケージに対応します。
+引数で渡す場合は従来どおり1行だけを指定します。
 パッケージ引数全体を単一引用符・二重引用符で囲むこともできます。
 Go は `@version` が必須、Cargo の `--version` は完全なバージョン（例: `14.1.1`）、
 Python のバージョン指定は `==version` に対応します。バージョン範囲は未対応です。
-未知のオプション、URL・ローカルパス指定、複数コマンド、パイプ、リダイレクト、
+未知のオプション、URL・ローカルパス指定、同一行の複数コマンド、パイプ、リダイレクト、
 変数展開・コマンド置換などは意味を落として変換せず、エラーにします。
-成功時の標準出力は変換済みコマンド1行だけです。入力エラー時は標準出力を空にし、
-標準エラーに説明を出して非ゼロで終了します。
+成功時の標準出力は変換済みコマンドだけです。全行を検証してから入力順に出力し、
+入力エラー時は標準出力を空にして、標準エラーに行番号と説明を出して非ゼロで終了します。
+
+```sh
+# 1行ごとに go install / npm install -g などが書かれたファイル
+cat ~/Downloads/go-export/go-installs.sh | goodbye convert --to mise
+
+# goodbye export が書き出したパッケージ一覧（標準出力のログではなくファイル）
+cat ~/Downloads/go-export/go-tools.txt | goodbye convert --from go --to mise
+cat ~/Downloads/npm-export/npm-global.txt | goodbye convert --from npm --to mise
+```
+
+`--from` は `go` / `npm` / `pnpm` / `cargo` / `uv` に対応し、export のテキスト形式を読みます。
+Go は `module@version`、npm / pnpm は `package` または `package@version`、
+Cargo は `crate@version`、uv は `package==version` を変換します。
+`--from` なしの場合はインストールコマンドとして解釈します。
+どちらも空行と行全体のコメント（`#`、シバンを含む）を読み飛ばします。
+空行・コメントだけの入力はエラーです。`.sh` は実行しないため、`set -e`、ループ、
+行継続、行末コメントなどのシェル構文は未対応としてエラーにします。
 
 ---
 

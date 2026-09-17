@@ -12,11 +12,13 @@ import (
 func init() { rootCmd.AddCommand(newConvertCommand()) }
 
 func newConvertCommand() *cobra.Command {
-	var to string
+	var to, from string
 	c := &cobra.Command{
 		Use:   "convert --to mise [command]",
 		Short: "Convert an install command to a mise command without executing it",
-		Long: `Convert one installation command supplied as a quoted argument or on stdin.
+		Long: `Convert one installation command supplied as a quoted argument, or multiple
+commands on stdin. Use --from to read goodbye export package lists instead.
+Blank lines and full-line comments (including shebangs) on stdin are ignored.
 Supports go install, npm install/i -g, pnpm add -g, cargo install
 (optionally --version), and uv tool install. Unsupported options and
 shell expressions are rejected. Only the converted command is written to stdout.`,
@@ -38,7 +40,10 @@ shell expressions are rejected. Only the converted command is written to stdout.
 				}
 				input = string(data)
 			}
-			result, err := convertInstallCommand(input)
+			if len(args) == 1 && strings.ContainsAny(input, "\r\n") {
+				return fmt.Errorf("use stdin for multiple lines")
+			}
+			result, err := convertLines(input, from)
 			if err != nil {
 				return err
 			}
@@ -47,6 +52,7 @@ shell expressions are rejected. Only the converted command is written to stdout.
 		},
 	}
 	c.Flags().StringVar(&to, "to", "", "Conversion target (mise)")
+	c.Flags().StringVar(&from, "from", "", "Export source: go, npm, pnpm, cargo, uv (default: install commands)")
 	return c
 }
 
@@ -55,8 +61,44 @@ var (
 	convertNpmSpec      = regexp.MustCompile(`^(@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*(@[A-Za-z0-9][A-Za-z0-9._+-]*)?$`)
 	convertCrate        = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 	convertCargoVersion = regexp.MustCompile(`^=?[0-9]+\.[0-9]+\.[0-9]+(-[A-Za-z0-9.-]+)?(\+[A-Za-z0-9.-]+)?$`)
-	convertPythonSpec   = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*(==[0-9][A-Za-z0-9._+]*)?$`)
+	convertPythonSpec   = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*(==([0-9]+!)?[0-9][A-Za-z0-9._+-]*)?$`)
 )
+
+func convertLines(input, from string) (string, error) {
+	prefixes := map[string]string{"go": "go install ", "npm": "npm install -g ", "pnpm": "pnpm add -g ", "cargo": "cargo install ", "uv": "uv tool install "}
+	if from != "" && prefixes[from] == "" {
+		return "", fmt.Errorf("unsupported source %q: expected go, npm, pnpm, cargo or uv", from)
+	}
+	var results []string
+	for i, line := range strings.Split(input, "\n") {
+		line = strings.Trim(strings.TrimSuffix(line, "\r"), " \t")
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if from != "" {
+			if strings.ContainsAny(line, " \t\r\"'") {
+				return "", fmt.Errorf("line %d: expected one unquoted exported package", i+1)
+			}
+			if from == "cargo" {
+				name, version, ok := strings.Cut(line, "@")
+				if !ok || !convertCargoVersion.MatchString(version) {
+					return "", fmt.Errorf("line %d: expected crate@version", i+1)
+				}
+				line = name + " --version " + version
+			}
+			line = prefixes[from] + line
+		}
+		result, err := convertInstallCommand(line)
+		if err != nil {
+			return "", fmt.Errorf("line %d: %w", i+1, err)
+		}
+		results = append(results, result)
+	}
+	if len(results) == 0 {
+		return "", fmt.Errorf("no install commands or packages found")
+	}
+	return strings.Join(results, "\n"), nil
+}
 
 func convertInstallCommand(input string) (string, error) {
 	// This deliberately accepts a small literal grammar, not a shell program.
@@ -109,5 +151,9 @@ func convertInstallCommand(input string) (string, error) {
 	default:
 		return invalid()
 	}
-	return "mise use -g " + backend + ":" + spec, nil
+	tool := backend + ":" + spec
+	if strings.Contains(tool, "!") {
+		tool = "'" + tool + "'"
+	}
+	return "mise use -g " + tool, nil
 }
