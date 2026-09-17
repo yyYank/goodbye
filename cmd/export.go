@@ -81,6 +81,7 @@ var (
 	exportApply      bool
 	exportVerbose    bool
 	exportMiseFormat string
+	exportNpmFormat  string
 )
 
 func init() {
@@ -96,6 +97,7 @@ func init() {
 	exportNpmCmd.Flags().StringVar(&exportDir, "dir", ".", "Output directory for exported files")
 	exportNpmCmd.Flags().BoolVar(&exportApply, "apply", false, "Actually perform the export (default is dry-run)")
 	exportNpmCmd.Flags().BoolVarP(&exportVerbose, "verbose", "v", false, "Verbose output")
+	exportNpmCmd.Flags().StringVar(&exportNpmFormat, "format", "text", "Output format (text or mise; mise uses npm JSON output and merges into .mise.toml)")
 
 	exportMiseCmd.Flags().StringVar(&exportDir, "dir", ".", "Output directory for exported files")
 	exportMiseCmd.Flags().BoolVar(&exportApply, "apply", false, "Actually perform the export (default is dry-run)")
@@ -134,6 +136,8 @@ func runExportNpm(cmd *cobra.Command, args []string) error {
 		Dir:     exportDir,
 		DryRun:  !exportApply,
 		Verbose: exportVerbose,
+		Format:  exportNpmFormat,
+		Out:     cmd.OutOrStdout(),
 	}
 
 	return npm.Export(npmCfg, opts)

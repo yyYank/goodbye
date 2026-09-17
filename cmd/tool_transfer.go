@@ -51,6 +51,8 @@ func newToolTransferCommand(name, direction string, action func(transfer.Options
 	cmd.Flags().BoolVarP(&opts.Verbose, "verbose", "v", false, "Show installation output")
 	if direction == "import" {
 		cmd.Flags().BoolVar(&opts.Continue, "continue", false, "Continue installing after errors; still exit with an error if any fail")
+	} else {
+		cmd.Flags().StringVar(&opts.Format, "format", "text", "Output format (text or mise; mise merges into .mise.toml)")
 	}
 	return cmd
 }
