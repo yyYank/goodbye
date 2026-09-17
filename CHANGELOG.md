@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.9](https://github.com/yyYank/goodbye/compare/v0.0.8...v0.0.9) - 2026-09-17
+
+- インストールコマンドをmise向けに変換する機能を追加 by @yyYank in https://github.com/yyYank/goodbye/pull/26
+
 ## [v0.0.8](https://github.com/yyYank/goodbye/compare/v0.0.7...v0.0.8) - 2026-09-17
 
 - [Mise] 各ツールの設定をmise形式へ集約 by @yyYank in https://github.com/yyYank/goodbye/pull/24
