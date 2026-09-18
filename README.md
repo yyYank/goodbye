@@ -66,6 +66,7 @@ goodbye
 │   └── dotfiles [--url <repository-url>]
 ├── status
 ├── edit
+├── uninstall <npm|pnpm|go|cargo|uv|brew>
 ├── convert
 └── brew
     ├── --mise
@@ -74,6 +75,60 @@ goodbye
 
 環境に変更を加えるコマンドは **デフォルトで dry-run** です。
 実際に変更を行う場合は `--apply` を明示的に指定します。
+
+---
+
+## グローバルインストールの削除
+
+mise への移行後などに、元の管理元に残ったパッケージを削除します。
+削除元は必ず明示します。名前の直接指定、`--all`、`--file`、`--tui` のいずれかを選びます。
+通常は dry-run で、実際の削除には `--apply` が必要です。
+
+```sh
+# 個別指定（複数指定も可能）
+goodbye uninstall npm prettier
+goodbye uninstall npm prettier --apply
+goodbye uninstall go github.com/yyYank/goodbye --apply
+
+# 指定した管理元のグローバルインストールを全件選択
+goodbye uninstall go --all
+goodbye uninstall npm --all --apply
+
+# export のテキストファイルから選択。バージョン付きなら一致を確認
+goodbye uninstall go --file ~/Downloads/go-export/go-tools.txt --apply
+
+# 矢印キー・Space で複数選択する対話画面
+goodbye uninstall npm --tui
+goodbye uninstall npm --tui --apply
+```
+
+対話画面では上下矢印または `j/k` で移動し、Space で選択を切り替えます。
+`h` / 左矢印で選択解除、`l` / 右矢印で選択、`a` で全選択・全解除、Enter で確定します。
+`q` または Ctrl-C でキャンセルできます。長い一覧はカーソル移動に合わせてページが切り替わります。
+`--apply` 付きでも選択直後には削除せず、対象を表示して `delete` と入力したときに削除します。
+macOS / Linux の端末と `stty` を利用し、新しいライブラリへの依存はありません。
+対話画面を閉じると端末の入力設定を復元します。パイプ入力では `--file` や個別指定を利用してください。
+
+| 管理元 | 削除方法・対象 |
+| --- | --- |
+| npm | `npm uninstall -g`。現在の npm のグローバル領域 |
+| pnpm | `pnpm remove -g`。現在の pnpm のグローバル領域 |
+| Go | `GOBIN`、未設定なら先頭の `GOPATH/bin` にある Go 実行ファイルをビルド情報で特定して削除 |
+| Cargo | `cargo uninstall --root ...`。`CARGO_INSTALL_ROOT`、Cargo home の `install.root`、Cargo home の順で対象領域を決定 |
+| uv | `uv tool uninstall`。現在の uv tool 領域 |
+| Homebrew | `brew uninstall --formula` / `--cask`。tap 自体は削除しない |
+
+全件指定はその管理元の**現在の環境**が対象で、別の Node/Go バージョンなどの領域は横断しません。
+Go はパッケージの完全なコマンドパスで指定します。シンボリックリンク、Go のビルド情報がないファイル、
+Go ランタイム本体は対象外です。削除直前にもファイルが置き換わっていないか確認します。
+既知の mise 個別ツール領域（`MISE_DATA_DIR` を含む）をネイティブの削除先に指定した場合は拒否します。
+mise の設定変更・キャッシュ削除・別領域の同名ツールの削除は行いません。
+
+対象が見つからない、同名の候補が複数ある、指定したバージョンが違う場合は、削除開始前にエラーにします。
+Homebrew の formula と cask が同名なら `formula:name` / `cask:name` で指定できます。
+Homebrew は依存関係チェックを無効化せず、同種の選択対象をまとめて渡します。
+削除中に管理元のコマンドが失敗した場合はそこで停止します。既に成功した削除は元に戻しません。
+Cargo の相対 `install.root` は未対応のため、絶対パスの `CARGO_INSTALL_ROOT` を指定してください。
 
 ---
 
