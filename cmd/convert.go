@@ -14,16 +14,19 @@ func init() { rootCmd.AddCommand(newConvertCommand()) }
 func newConvertCommand() *cobra.Command {
 	var to, from string
 	c := &cobra.Command{
-		Use:   "convert --to mise [command]",
+		Use:   "convert [command]",
 		Short: "Convert an install command to a mise command without executing it",
 		Long: `Convert one installation command supplied as a quoted argument, or multiple
-commands on stdin. Use --from to read goodbye export package lists instead.
+commands or package specifications on stdin. The target defaults to mise.
+The source is inferred when --from is omitted; use --from for ambiguous packages.
 Blank lines and full-line comments (including shebangs) on stdin are ignored.
 Supports go install, npm install/i -g, pnpm add -g, cargo install
 (optionally --version), and uv tool install. Unsupported options and
 shell expressions are rejected. Only the converted command is written to stdout.`,
-		Example: `  echo 'go install github.com/foo/bar@latest' | goodbye convert --to mise
-  goodbye convert --to mise 'npm install -g prettier'`,
+		Example: `  echo 'go install github.com/foo/bar@latest' | goodbye convert
+  goodbye convert 'npm install -g prettier'
+  goodbye convert github.com/d-kuro/gwq/cmd/gwq@v0.0.14
+  goodbye convert @scope/tool`,
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,12 +54,13 @@ shell expressions are rejected. Only the converted command is written to stdout.
 			return err
 		},
 	}
-	c.Flags().StringVar(&to, "to", "", "Conversion target (mise)")
-	c.Flags().StringVar(&from, "from", "", "Export source: go, npm, pnpm, cargo, uv (default: install commands)")
+	c.Flags().StringVar(&to, "to", "mise", "Conversion target (mise)")
+	c.Flags().StringVar(&from, "from", "", "Export source: go, npm, pnpm, cargo, uv (default: infer from input)")
 	return c
 }
 
 var (
+	convertGoHost       = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9.-]*\.[A-Za-z][A-Za-z0-9-]*/`)
 	convertGoSpec       = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._/-]*@[A-Za-z0-9][A-Za-z0-9._+-]*$`)
 	convertNpmSpec      = regexp.MustCompile(`^(@[a-z0-9][a-z0-9._-]*/)?[a-z0-9][a-z0-9._-]*(@[A-Za-z0-9][A-Za-z0-9._+-]*)?$`)
 	convertCrate        = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
@@ -75,18 +79,31 @@ func convertLines(input, from string) (string, error) {
 		if line == "" || strings.HasPrefix(line, "#") {
 			continue
 		}
-		if from != "" {
+		source := from
+		if source == "" && !strings.ContainsAny(line, " \t") {
+			switch {
+			case convertGoHost.MatchString(line) && convertGoSpec.MatchString(line):
+				source = "go"
+			case strings.HasPrefix(line, "@") && convertNpmSpec.MatchString(line):
+				source = "npm"
+			case strings.Contains(line, "==") && convertPythonSpec.MatchString(line):
+				source = "uv"
+			default:
+				return "", fmt.Errorf("line %d: cannot infer package source; specify --from go, npm, pnpm, cargo or uv, or provide an install command", i+1)
+			}
+		}
+		if source != "" {
 			if strings.ContainsAny(line, " \t\r\"'") {
 				return "", fmt.Errorf("line %d: expected one unquoted exported package", i+1)
 			}
-			if from == "cargo" {
+			if source == "cargo" {
 				name, version, ok := strings.Cut(line, "@")
 				if !ok || !convertCargoVersion.MatchString(version) {
 					return "", fmt.Errorf("line %d: expected crate@version", i+1)
 				}
 				line = name + " --version " + version
 			}
-			line = prefixes[from] + line
+			line = prefixes[source] + line
 		}
 		result, err := convertInstallCommand(line)
 		if err != nil {

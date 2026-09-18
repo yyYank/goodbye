@@ -66,7 +66,7 @@ goodbye
 │   └── dotfiles [--url <repository-url>]
 ├── status
 ├── edit
-├── convert --to mise
+├── convert
 └── brew
     ├── --mise
     └── --asdf
@@ -81,13 +81,14 @@ goodbye
 
 README などのインストールコマンドを標準入力または1つの引数で渡します。
 `convert` はコマンド文字列を出力するだけで、インストールや設定変更は実行しません。
-`--apply` は不要です。
+`--apply` は不要です。変換先はデフォルトで `mise` です。
+既存の `goodbye convert --to mise ...` という明示指定も引き続き使えます。
 
 ```sh
-echo 'go install github.com/foo/bar@latest' | goodbye convert --to mise
+echo 'go install github.com/foo/bar@latest' | goodbye convert
 # mise use -g go:github.com/foo/bar@latest
 
-goodbye convert --to mise 'npm install -g prettier@3.6.2'
+goodbye convert 'npm install -g prettier@3.6.2'
 # mise use -g npm:prettier@3.6.2
 ```
 
@@ -116,17 +117,35 @@ Python のバージョン指定は `==version` に対応します。バージョ
 
 ```sh
 # 1行ごとに go install / npm install -g などが書かれたファイル
-cat ~/Downloads/go-export/go-installs.sh | goodbye convert --to mise
+cat ~/Downloads/go-export/go-installs.sh | goodbye convert
 
 # goodbye export が書き出したパッケージ一覧（標準出力のログではなくファイル）
-cat ~/Downloads/go-export/go-tools.txt | goodbye convert --from go --to mise
-cat ~/Downloads/npm-export/npm-global.txt | goodbye convert --from npm --to mise
+cat ~/Downloads/go-export/go-tools.txt | goodbye convert --from go
+cat ~/Downloads/npm-export/npm-global.txt | goodbye convert --from npm
 ```
 
 `--from` は `go` / `npm` / `pnpm` / `cargo` / `uv` に対応し、export のテキスト形式を読みます。
 Go は `module@version`、npm / pnpm は `package` または `package@version`、
 Cargo は `crate@version`、uv は `package==version` を変換します。
-`--from` なしの場合はインストールコマンドとして解釈します。
+`--from` 省略時は入力から変換元を推測し、`--to` 省略時は `mise` に変換します。
+完全なインストールコマンドに加えて、次のパッケージ指定もそのまま渡せます。
+
+```sh
+goodbye convert github.com/d-kuro/gwq/cmd/gwq@v0.0.14
+# mise use -g go:github.com/d-kuro/gwq/cmd/gwq@v0.0.14
+
+goodbye convert @scope/tool@1.2.3
+# mise use -g npm:@scope/tool@1.2.3
+
+goodbye convert ruff==0.9.1
+# mise use -g pypi:ruff@0.9.1
+```
+
+推測は文字列の形式だけで行い、レジストリへの問い合わせやコマンド実行は行いません。
+ドメイン付きの `path@version` は Go、`@scope/package` は npm、`package==version` は Python として扱います。
+`prettier` や `ripgrep@14.1.1` など、形式だけでは区別できない指定は `--from` を求めるエラーにします。
+明示した `--from` は推測より優先します。標準入力ではコマンドと判別可能なパッケージ指定を混在させられます。
+
 どちらも空行と行全体のコメント（`#`、シバンを含む）を読み飛ばします。
 空行・コメントだけの入力はエラーです。`.sh` は実行しないため、`set -e`、ループ、
 行継続、行末コメントなどのシェル構文は未対応としてエラーにします。

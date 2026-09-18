@@ -103,7 +103,7 @@ func Test変換コマンドが登録されている(t *testing.T) {
 }
 
 func Test変換先と引数の数を検証する(t *testing.T) {
-	for _, args := range [][]string{{"npm install -g foo"}, {"--to", "brew", "npm install -g foo"}, {"--to", "mise", "one", "two"}} {
+	for _, args := range [][]string{{"--to", "", "npm install -g foo"}, {"--to", "brew", "npm install -g foo"}, {"--to", "mise", "one", "two"}} {
 		c := newConvertCommand()
 		var out bytes.Buffer
 		c.SetOut(&out)
@@ -172,5 +172,104 @@ func Test不正行を含む一覧は行番号を返し何も出力しない(t *t
 				t.Fatalf("err=%v out=%q", err, out.String())
 			}
 		})
+	}
+}
+
+func Test変換先省略時もmiseに変換する(t *testing.T) {
+	for _, tc := range []struct {
+		args        []string
+		input, want string
+	}{
+		{[]string{"go install github.com/foo/bar@latest"}, "", "mise use -g go:github.com/foo/bar@latest\n"},
+		{nil, "npm install -g prettier\ncargo install ripgrep\n", "mise use -g npm:prettier\nmise use -g cargo:ripgrep\n"},
+		{[]string{"--from", "go"}, "example.com/a@v1.2.3\n", "mise use -g go:example.com/a@v1.2.3\n"},
+	} {
+		c := newConvertCommand()
+		var out bytes.Buffer
+		c.SetOut(&out)
+		c.SetErr(&bytes.Buffer{})
+		c.SetIn(strings.NewReader(tc.input))
+		c.SetArgs(append([]string{}, tc.args...))
+		if err := c.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if out.String() != tc.want {
+			t.Fatalf("got %q want %q", out.String(), tc.want)
+		}
+	}
+}
+
+func Testパッケージ形式から変換元を判別する(t *testing.T) {
+	for _, tc := range []struct{ input, from, want string }{
+		{"github.com/d-kuro/gwq/cmd/gwq@v0.0.14", "", "go:github.com/d-kuro/gwq/cmd/gwq@v0.0.14"},
+		{"golang.org/x/tools/gopls@v0.23.0", "", "go:golang.org/x/tools/gopls@v0.23.0"},
+		{"@openai/codex", "", "npm:@openai/codex"},
+		{"@scope/tool@1.2.3", "", "npm:@scope/tool@1.2.3"},
+		{"ruff==0.9.1", "", "pypi:ruff@0.9.1"},
+		{"ripgrep@14.1.1", "cargo", "cargo:ripgrep@14.1.1"},
+		{"@scope/tool", "pnpm", "npm:@scope/tool"},
+	} {
+		t.Run(tc.input, func(t *testing.T) {
+			c := newConvertCommand()
+			var out bytes.Buffer
+			c.SetOut(&out)
+			c.SetErr(&bytes.Buffer{})
+			args := []string{tc.input}
+			if tc.from != "" {
+				args = append([]string{"--from", tc.from}, args...)
+			}
+			c.SetArgs(args)
+			if err := c.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if want := "mise use -g " + tc.want + "\n"; out.String() != want {
+				t.Fatalf("got %q want %q", out.String(), want)
+			}
+		})
+	}
+}
+
+func Test自動判別は曖昧な指定や明示形式の不一致を拒否する(t *testing.T) {
+	for _, args := range [][]string{
+		{"prettier"}, {"ripgrep@14.1.1"}, {"owner/repo@v1.0.0"},
+		{"https://github.com/owner/repo@v1.0.0"}, {"./local/tool@v1.0.0"},
+		{"--from", "cargo", "@scope/tool"}, {"--from", "npm", "github.com/owner/repo@v1.0.0"},
+	} {
+		c := newConvertCommand()
+		var out bytes.Buffer
+		c.SetOut(&out)
+		c.SetErr(&bytes.Buffer{})
+		c.SetArgs(args)
+		err := c.Execute()
+		if err == nil || out.Len() != 0 {
+			t.Fatalf("args=%q err=%v out=%q", args, err, out.String())
+		}
+		if len(args) == 1 && !strings.Contains(err.Error(), "--from") {
+			t.Fatalf("形式指定の案内がない: %v", err)
+		}
+	}
+}
+
+func Testコマンドとパッケージ指定を混在して全行検証する(t *testing.T) {
+	input := "github.com/foo/bar@v1.0.0\n@scope/tool\ncargo install ripgrep\n"
+	for _, invalid := range []bool{false, true} {
+		c := newConvertCommand()
+		var out bytes.Buffer
+		c.SetOut(&out)
+		c.SetErr(&bytes.Buffer{})
+		c.SetArgs([]string{})
+		data := input
+		if invalid {
+			data += "ambiguous\n"
+		}
+		c.SetIn(strings.NewReader(data))
+		err := c.Execute()
+		if invalid {
+			if err == nil || !strings.Contains(err.Error(), "line 4") || out.Len() != 0 {
+				t.Fatalf("err=%v out=%q", err, out.String())
+			}
+		} else if want := "mise use -g go:github.com/foo/bar@v1.0.0\nmise use -g npm:@scope/tool\nmise use -g cargo:ripgrep\n"; err != nil || out.String() != want {
+			t.Fatalf("err=%v out=%q", err, out.String())
+		}
 	}
 }
