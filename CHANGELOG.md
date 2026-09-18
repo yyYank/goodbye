@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.10](https://github.com/yyYank/goodbye/compare/v0.0.9...v0.0.10) - 2026-09-18
+
+- convertの変換先をmiseに既定化しパッケージ形式から変換元を推測 by @yyYank in https://github.com/yyYank/goodbye/pull/28
+
 ## [v0.0.9](https://github.com/yyYank/goodbye/compare/v0.0.8...v0.0.9) - 2026-09-17
 
 - インストールコマンドをmise向けに変換する機能を追加 by @yyYank in https://github.com/yyYank/goodbye/pull/26
