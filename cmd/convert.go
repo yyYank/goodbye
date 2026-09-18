@@ -14,16 +14,16 @@ func init() { rootCmd.AddCommand(newConvertCommand()) }
 func newConvertCommand() *cobra.Command {
 	var to, from string
 	c := &cobra.Command{
-		Use:   "convert --to mise [command]",
+		Use:   "convert [command]",
 		Short: "Convert an install command to a mise command without executing it",
 		Long: `Convert one installation command supplied as a quoted argument, or multiple
-commands on stdin. Use --from to read goodbye export package lists instead.
+commands on stdin. The conversion target defaults to mise. Use --from to read goodbye export package lists instead.
 Blank lines and full-line comments (including shebangs) on stdin are ignored.
 Supports go install, npm install/i -g, pnpm add -g, cargo install
 (optionally --version), and uv tool install. Unsupported options and
 shell expressions are rejected. Only the converted command is written to stdout.`,
-		Example: `  echo 'go install github.com/foo/bar@latest' | goodbye convert --to mise
-  goodbye convert --to mise 'npm install -g prettier'`,
+		Example: `  echo 'go install github.com/foo/bar@latest' | goodbye convert
+  goodbye convert 'npm install -g prettier'`,
 		Args:         cobra.MaximumNArgs(1),
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -51,7 +51,7 @@ shell expressions are rejected. Only the converted command is written to stdout.
 			return err
 		},
 	}
-	c.Flags().StringVar(&to, "to", "", "Conversion target (mise)")
+	c.Flags().StringVar(&to, "to", "mise", "Conversion target (mise)")
 	c.Flags().StringVar(&from, "from", "", "Export source: go, npm, pnpm, cargo, uv (default: install commands)")
 	return c
 }

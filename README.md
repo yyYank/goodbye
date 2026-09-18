@@ -66,7 +66,7 @@ goodbye
 │   └── dotfiles [--url <repository-url>]
 ├── status
 ├── edit
-├── convert --to mise
+├── convert
 └── brew
     ├── --mise
     └── --asdf
@@ -81,13 +81,14 @@ goodbye
 
 README などのインストールコマンドを標準入力または1つの引数で渡します。
 `convert` はコマンド文字列を出力するだけで、インストールや設定変更は実行しません。
-`--apply` は不要です。
+`--apply` は不要です。変換先はデフォルトで `mise` です。
+既存の `goodbye convert --to mise ...` という明示指定も引き続き使えます。
 
 ```sh
-echo 'go install github.com/foo/bar@latest' | goodbye convert --to mise
+echo 'go install github.com/foo/bar@latest' | goodbye convert
 # mise use -g go:github.com/foo/bar@latest
 
-goodbye convert --to mise 'npm install -g prettier@3.6.2'
+goodbye convert 'npm install -g prettier@3.6.2'
 # mise use -g npm:prettier@3.6.2
 ```
 
@@ -116,11 +117,11 @@ Python のバージョン指定は `==version` に対応します。バージョ
 
 ```sh
 # 1行ごとに go install / npm install -g などが書かれたファイル
-cat ~/Downloads/go-export/go-installs.sh | goodbye convert --to mise
+cat ~/Downloads/go-export/go-installs.sh | goodbye convert
 
 # goodbye export が書き出したパッケージ一覧（標準出力のログではなくファイル）
-cat ~/Downloads/go-export/go-tools.txt | goodbye convert --from go --to mise
-cat ~/Downloads/npm-export/npm-global.txt | goodbye convert --from npm --to mise
+cat ~/Downloads/go-export/go-tools.txt | goodbye convert --from go
+cat ~/Downloads/npm-export/npm-global.txt | goodbye convert --from npm
 ```
 
 `--from` は `go` / `npm` / `pnpm` / `cargo` / `uv` に対応し、export のテキスト形式を読みます。

@@ -103,7 +103,7 @@ func Test変換コマンドが登録されている(t *testing.T) {
 }
 
 func Test変換先と引数の数を検証する(t *testing.T) {
-	for _, args := range [][]string{{"npm install -g foo"}, {"--to", "brew", "npm install -g foo"}, {"--to", "mise", "one", "two"}} {
+	for _, args := range [][]string{{"--to", "", "npm install -g foo"}, {"--to", "brew", "npm install -g foo"}, {"--to", "mise", "one", "two"}} {
 		c := newConvertCommand()
 		var out bytes.Buffer
 		c.SetOut(&out)
@@ -172,5 +172,29 @@ func Test不正行を含む一覧は行番号を返し何も出力しない(t *t
 				t.Fatalf("err=%v out=%q", err, out.String())
 			}
 		})
+	}
+}
+
+func Test変換先省略時もmiseに変換する(t *testing.T) {
+	for _, tc := range []struct {
+		args        []string
+		input, want string
+	}{
+		{[]string{"go install github.com/foo/bar@latest"}, "", "mise use -g go:github.com/foo/bar@latest\n"},
+		{nil, "npm install -g prettier\ncargo install ripgrep\n", "mise use -g npm:prettier\nmise use -g cargo:ripgrep\n"},
+		{[]string{"--from", "go"}, "example.com/a@v1.2.3\n", "mise use -g go:example.com/a@v1.2.3\n"},
+	} {
+		c := newConvertCommand()
+		var out bytes.Buffer
+		c.SetOut(&out)
+		c.SetErr(&bytes.Buffer{})
+		c.SetIn(strings.NewReader(tc.input))
+		c.SetArgs(append([]string{}, tc.args...))
+		if err := c.Execute(); err != nil {
+			t.Fatal(err)
+		}
+		if out.String() != tc.want {
+			t.Fatalf("got %q want %q", out.String(), tc.want)
+		}
 	}
 }
