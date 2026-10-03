@@ -1,5 +1,9 @@
 # Changelog
 
+## [v0.0.12](https://github.com/yyYank/goodbye/compare/v0.0.11...v0.0.12) - 2026-10-03
+
+- convertコマンドでクオートなし複数引数とnpm -gなしに対応 by @yyYank in https://github.com/yyYank/goodbye/pull/32
+
 ## [v0.0.11](https://github.com/yyYank/goodbye/compare/v0.0.10...v0.0.11) - 2026-09-24
 
 - グローバルツールのuninstallに対応 by @yyYank in https://github.com/yyYank/goodbye/pull/30
