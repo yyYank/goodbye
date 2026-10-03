@@ -12,6 +12,8 @@ func Testインストールコマンドをmiseに変換する(t *testing.T) {
 		{"go install github.com/foo/bar@latest", "go:github.com/foo/bar@latest"},
 		{"go install github.com/foo/bar@v1.2.3", "go:github.com/foo/bar@v1.2.3"},
 		{"npm install -g prettier", "npm:prettier"},
+		{"npm i @anthropic-ai/claude-code", "npm:@anthropic-ai/claude-code"},
+		{"npm install prettier", "npm:prettier"},
 		{"npm i -g @scope/tool@3.6.2", "npm:@scope/tool@3.6.2"},
 		{"pnpm add -g prettier@3.6.2", "npm:prettier@3.6.2"},
 		{"cargo install ripgrep", "cargo:ripgrep"},
@@ -44,7 +46,7 @@ func Testインストールコマンドをmiseに変換する(t *testing.T) {
 
 func Test曖昧な入力ではコマンドを出力しない(t *testing.T) {
 	for _, input := range []string{
-		"", "sudo npm install -g foo", "npm install foo", "npm install -g foo bar",
+		"", "sudo npm install -g foo", "npm install -g foo bar",
 		"npm install -g foo --ignore-scripts", "cargo install foo --git https://example.com/foo.git",
 		"cargo install foo --version", "cargo install foo --version ^1.0", "go install example.com/foo",
 		"npm install -g foo; touch /tmp/marker", "npm install -g $(touch /tmp/marker)",
@@ -170,6 +172,33 @@ func Test不正行を含む一覧は行番号を返し何も出力しない(t *t
 			err := c.Execute()
 			if err == nil || !strings.Contains(err.Error(), tc.line) || out.Len() != 0 {
 				t.Fatalf("err=%v out=%q", err, out.String())
+			}
+		})
+	}
+}
+
+func Testクオートなし複数引数を結合して変換する(t *testing.T) {
+	for _, tc := range []struct {
+		args []string
+		want string
+	}{
+		{[]string{"npm", "i", "@anthropic-ai/claude-code"}, "npm:@anthropic-ai/claude-code"},
+		{[]string{"npm", "install", "-g", "prettier"}, "npm:prettier"},
+		{[]string{"npm", "install", "prettier"}, "npm:prettier"},
+		{[]string{"go", "install", "github.com/foo/bar@latest"}, "go:github.com/foo/bar@latest"},
+		{[]string{"cargo", "install", "ripgrep", "--version", "14.1.1"}, "cargo:ripgrep@14.1.1"},
+	} {
+		t.Run(strings.Join(tc.args, " "), func(t *testing.T) {
+			c := newConvertCommand()
+			var out bytes.Buffer
+			c.SetOut(&out)
+			c.SetErr(&bytes.Buffer{})
+			c.SetArgs(tc.args)
+			if err := c.Execute(); err != nil {
+				t.Fatal(err)
+			}
+			if got, want := out.String(), "mise use -g "+tc.want+"\n"; got != want {
+				t.Fatalf("got %q, want %q", got, want)
 			}
 		})
 	}

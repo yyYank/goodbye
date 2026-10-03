@@ -14,28 +14,29 @@ func init() { rootCmd.AddCommand(newConvertCommand()) }
 func newConvertCommand() *cobra.Command {
 	var to, from string
 	c := &cobra.Command{
-		Use:   "convert [command]",
+		Use:   "convert [command...]",
 		Short: "Convert an install command to a mise command without executing it",
-		Long: `Convert one installation command supplied as a quoted argument, or multiple
-commands or package specifications on stdin. The target defaults to mise.
+		Long: `Convert one installation command supplied as arguments (quoting optional) or
+on stdin. The target defaults to mise.
 The source is inferred when --from is omitted; use --from for ambiguous packages.
 Blank lines and full-line comments (including shebangs) on stdin are ignored.
-Supports go install, npm install/i -g, pnpm add -g, cargo install
+Supports go install, npm install/i (-g optional), pnpm add -g, cargo install
 (optionally --version), and uv tool install. Unsupported options and
 shell expressions are rejected. Only the converted command is written to stdout.`,
-		Example: `  echo 'go install github.com/foo/bar@latest' | goodbye convert
+		Example: `  goodbye convert npm i @anthropic-ai/claude-code
+  echo 'go install github.com/foo/bar@latest' | goodbye convert
   goodbye convert 'npm install -g prettier'
   goodbye convert github.com/d-kuro/gwq/cmd/gwq@v0.0.14
   goodbye convert @scope/tool`,
-		Args:         cobra.MaximumNArgs(1),
+		Args:         cobra.ArbitraryArgs,
 		SilenceUsage: true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if to != "mise" {
 				return fmt.Errorf("unsupported conversion target %q: use --to mise", to)
 			}
 			var input string
-			if len(args) == 1 {
-				input = args[0]
+			if len(args) >= 1 {
+				input = strings.Join(args, " ")
 			} else {
 				data, err := io.ReadAll(cmd.InOrStdin())
 				if err != nil {
@@ -43,7 +44,7 @@ shell expressions are rejected. Only the converted command is written to stdout.
 				}
 				input = string(data)
 			}
-			if len(args) == 1 && strings.ContainsAny(input, "\r\n") {
+			if len(args) >= 1 && strings.ContainsAny(input, "\r\n") {
 				return fmt.Errorf("use stdin for multiple lines")
 			}
 			result, err := convertLines(input, from)
@@ -54,6 +55,7 @@ shell expressions are rejected. Only the converted command is written to stdout.
 			return err
 		},
 	}
+	c.Flags().SetInterspersed(false)
 	c.Flags().StringVar(&to, "to", "mise", "Conversion target (mise)")
 	c.Flags().StringVar(&from, "from", "", "Export source: go, npm, pnpm, cargo, uv (default: infer from input)")
 	return c
@@ -144,8 +146,15 @@ func convertInstallCommand(input string) (string, error) {
 		if !convertGoSpec.MatchString(spec) || strings.Contains(spec, "...") {
 			return invalid()
 		}
-	case ((words[0] == "npm" && (words[1] == "install" || words[1] == "i")) || (words[0] == "pnpm" && words[1] == "add")) && len(words) == 4 && words[2] == "-g":
-		backend, spec = "npm", words[3]
+	case (words[0] == "npm" && (words[1] == "install" || words[1] == "i")) || (words[0] == "pnpm" && words[1] == "add"):
+		switch {
+		case len(words) == 4 && words[2] == "-g":
+			backend, spec = "npm", words[3]
+		case words[0] == "npm" && len(words) == 3:
+			backend, spec = "npm", words[2]
+		default:
+			return invalid()
+		}
 		if !convertNpmSpec.MatchString(spec) {
 			return invalid()
 		}
