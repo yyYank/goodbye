@@ -134,23 +134,31 @@ Cargo の相対 `install.root` は未対応のため、絶対パスの `CARGO_IN
 
 ## インストールコマンドを mise 向けに変換
 
-README などのインストールコマンドを標準入力または1つの引数で渡します。
+README などのインストールコマンドを引数または標準入力で渡します。
+引数はクオート不要で、複数語をそのまま渡せます。
 `convert` はコマンド文字列を出力するだけで、インストールや設定変更は実行しません。
 `--apply` は不要です。変換先はデフォルトで `mise` です。
 既存の `goodbye convert --to mise ...` という明示指定も引き続き使えます。
 
 ```sh
-echo 'go install github.com/foo/bar@latest' | goodbye convert
+goodbye convert npm i @anthropic-ai/claude-code
+# mise use -g npm:@anthropic-ai/claude-code
+
+goodbye convert go install github.com/foo/bar@latest
 # mise use -g go:github.com/foo/bar@latest
 
 goodbye convert 'npm install -g prettier@3.6.2'
 # mise use -g npm:prettier@3.6.2
+
+echo 'cargo install ripgrep --version 14.1.1' | goodbye convert
+# mise use -g cargo:ripgrep@14.1.1
 ```
 
 | 対応する入力 | 出力 |
 | --- | --- |
 | `go install github.com/foo/bar@v1.2.3` | `mise use -g go:github.com/foo/bar@v1.2.3` |
 | `npm install -g prettier` / `npm i -g prettier` | `mise use -g npm:prettier` |
+| `npm install prettier` / `npm i prettier` | `mise use -g npm:prettier` |
 | `pnpm add -g prettier` | `mise use -g npm:prettier` |
 | `cargo install ripgrep` | `mise use -g cargo:ripgrep` |
 | `cargo install ripgrep --version 14.1.1` | `mise use -g cargo:ripgrep@14.1.1` |
@@ -161,8 +169,8 @@ Python の変換先は mise の現行名である [`pypi:` backend](https://mise
 npm のスコープ付きパッケージにも対応します。バージョンを省略した入力にはバージョンを補いません。
 
 標準入力では複数行をまとめて変換できます。各行は上記の引数順で、1コマンド・1パッケージに対応します。
-引数で渡す場合は従来どおり1行だけを指定します。
-パッケージ引数全体を単一引用符・二重引用符で囲むこともできます。
+引数で渡す場合はクオートなしで複数語をそのまま渡せます。クオートで囲むこともできます。
+`--to` / `--from` フラグはインストールコマンドより前に指定します。
 Go は `@version` が必須、Cargo の `--version` は完全なバージョン（例: `14.1.1`）、
 Python のバージョン指定は `==version` に対応します。バージョン範囲は未対応です。
 未知のオプション、URL・ローカルパス指定、同一行の複数コマンド、パイプ、リダイレクト、
